@@ -330,13 +330,14 @@ error message without secret content
 
 # 5. Phase 1 work packages
 
-Phase 1 consists of five implementation areas:
+Phase 1 consists of six implementation areas:
 
 1. Certificate catalogue schema and README.
 2. Ansible role extension to write PEM material to Secrets Manager.
 3. Jenkins shared library helper: `issueCertificate(app)`.
 4. Jenkins certificate issuance pipeline.
 5. Expiry checker Lambda with SNS threshold routing.
+6. AWS infrastructure (Terraform).
 
 ---
 
@@ -1398,7 +1399,165 @@ Restrict `sns:Publish` to the exact SNS topic ARNs.
 
 ---
 
-# 11. Explicit Phase 1 exclusions
+# 11. Work package 6 — AWS infrastructure (Terraform)
+
+## 11.1 Requirement
+
+Deploy and manage the AWS infrastructure required for Phase 1 certificate lifecycle automation using Terraform. Terraform must own durable AWS infrastructure in two areas:
+
+1. The shared services account — expiry checker Lambda, IAM execution role, SNS topics, CloudWatch log group.
+2. Each spoke application account — `CertLifecycleRole` cross-account trust role with read-only certificate access.
+
+Terraform must **not** own certificate private keys, PEM certificate bodies, Vault-issued certificate material, or live Secrets Manager certificate secret values.
+
+---
+
+## 11.2 Shared services account resources
+
+Terraform must create or manage:
+
+- Expiry checker Lambda function
+- Lambda execution IAM role and least-privilege policy
+- CloudWatch log group with configurable retention (default 30 days)
+- `scip-cert-renewal` SNS topic
+- `scip-cert-p1-alerts` SNS topic
+- Optional Bitbucket token Secrets Manager secret container (metadata only — value set manually after deployment)
+
+---
+
+## 11.3 Spoke account resources
+
+Terraform must provide a reusable module that creates:
+
+- `CertLifecycleRole` IAM role
+- Trust policy allowing the shared-account Lambda execution role to assume it
+- Read-only Secrets Manager policy scoped to `/scip/certs/*`
+- Optional KMS decrypt policy constrained by `kms:ViaService` when customer-managed keys are in use
+
+The spoke role must **not** have write access to Secrets Manager (`PutSecretValue`, `CreateSecret`, `DeleteSecret`, `UpdateSecret`).
+
+---
+
+## 11.4 IAM least privilege
+
+### Lambda execution role
+
+| Action | Scope |
+| --- | --- |
+| `secretsmanager:GetSecretValue` | Bitbucket token secret ARN only |
+| `sts:AssumeRole` | Approved spoke `CertLifecycleRole` ARNs only |
+| `sns:Publish` | cert-renewal and cert-p1-alerts topic ARNs only |
+| `logs:CreateLogStream`, `logs:PutLogEvents` | Lambda CloudWatch log group ARN only |
+
+### jagent-ec2-role (externally owned)
+
+This role is owned outside this Terraform state. The required Secrets Manager write policy and optional KMS addon are documented in:
+
+```text
+scip/cert-lifecycle/iam/spoke-account-jagent-policy.json
+scip/cert-lifecycle/iam/spoke-account-jagent-kms-addon.json
+```
+
+Apply these through whichever process owns the role.
+
+---
+
+## 11.5 Lambda environment variables managed by Terraform
+
+```text
+BITBUCKET_TOKEN_SECRET_ID  /scip/cert-lifecycle/bitbucket-token
+BITBUCKET_CATALOGUE_URLS   <comma-separated raw Bitbucket file URLs>
+SPOKE_ROLE_NAME            CertLifecycleRole
+CERT_RENEWAL_TOPIC_ARN     <SNS topic ARN>
+CERT_P1_ALERT_TOPIC_ARN    <SNS topic ARN>
+JENKINS_JOB_NAME           <Jenkins job name>
+JENKINS_JOB_URL            <Jenkins job URL>
+RUNBOOK_URL                <runbook URL>
+```
+
+`AWS_REGION` is excluded — the Lambda runtime provides it automatically from the function's deployment region.
+
+No environment variable may contain private keys, certificate bodies, or live secret values.
+
+---
+
+## 11.6 Critical state security rule
+
+Terraform must never store certificate private keys or certificate bodies in state.
+
+Do not create `aws_secretsmanager_secret_version` resources for live certificate material.
+
+Terraform may create the Bitbucket token Secrets Manager secret container. The token value must be inserted manually:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id "/scip/cert-lifecycle/bitbucket-token" \
+  --secret-string '{"token":"<token>"}' \
+  --region eu-west-2
+```
+
+---
+
+## 11.7 Deployment model
+
+Two root modules are applied independently:
+
+```text
+1. Apply terraform/shared-services/ in the shared services account.
+   Note the lambda_execution_role_arn output for spoke applies.
+
+2. Apply terraform/spoke/ once per spoke account, switching AWS credentials.
+```
+
+The shared services apply must precede spoke applies. See `terraform/shared-services/terraform.tfvars.example` and `terraform/spoke/terraform.tfvars.example` for full variable reference.
+
+After both applies, complete these manual steps:
+
+```text
+1. Insert the Bitbucket token value into Secrets Manager.
+2. Create an EventBridge schedule rule targeting the Lambda ARN.
+3. Subscribe to the SNS topics.
+```
+
+---
+
+## 11.8 Validation requirements
+
+```text
+terraform fmt -check -recursive
+terraform validate  (shared-services root module)
+terraform validate  (spoke root module)
+```
+
+---
+
+## 11.9 Acceptance criteria
+
+```text
+- Terraform creates the shared-account expiry checker Lambda infrastructure.
+- Terraform creates the Lambda CloudWatch log group with configurable retention.
+- Terraform creates the Lambda execution role with least-privilege IAM.
+- Lambda can only read the Bitbucket token secret, assume approved spoke
+  CertLifecycleRole ARNs, publish to the cert lifecycle SNS topics, and
+  write to its own CloudWatch log group.
+- Terraform creates cert-renewal and cert-p1-alerts SNS topics.
+- Terraform provides a reusable spoke module for CertLifecycleRole.
+- CertLifecycleRole trusts only the shared-account Lambda execution role.
+- CertLifecycleRole can read /scip/certs/* but cannot create, update, or delete secrets.
+- KMS decrypt permissions are constrained to supplied CMK ARNs with kms:ViaService condition.
+- Terraform does not manage live certificate secret values.
+- Terraform state does not contain private keys, PEM bodies, Bitbucket token values,
+  Vault tokens, or AWS credentials.
+- Terraform exposes non-sensitive operational outputs (Lambda ARN, role ARN, SNS ARNs,
+  log group name).
+- terraform fmt -check passes.
+- terraform validate passes for both root modules.
+- Deployment guide explains shared-account and spoke-account deployment order.
+```
+
+---
+
+# 12. Explicit Phase 1 exclusions
 
 The following are not part of Phase 1:
 
@@ -1434,7 +1593,7 @@ That can be added in a later phase by comparing the Secrets Manager certificate 
 
 ---
 
-# 12. Operational runbook expectations
+# 13. Operational runbook expectations
 
 A runbook link must be included in alert messages.
 
@@ -1466,9 +1625,9 @@ Minimum operator flow after a renewal-needed email:
 
 ---
 
-# 13. Key implementation pitfalls to avoid
+# 14. Key implementation pitfalls to avoid
 
-## 13.1 Confusing base app name with enrolled app name
+## 14.1 Confusing base app name with enrolled app name
 
 Use the catalogue `name` field everywhere for secret paths and Jenkins `APP_NAME`.
 
@@ -1486,7 +1645,7 @@ Incorrect:
 
 ---
 
-## 13.2 Deleting and recreating Secrets Manager secrets
+## 14.2 Deleting and recreating Secrets Manager secrets
 
 Do not delete and recreate secrets during renewal.
 
@@ -1494,13 +1653,13 @@ Use new secret versions.
 
 ---
 
-## 13.3 Logging secret payloads
+## 14.3 Logging secret payloads
 
 Never log the JSON secret payload. It contains the private key.
 
 ---
 
-## 13.4 Relying on `expiry_epoch`
+## 14.4 Relying on `expiry_epoch`
 
 Do not route alerts based on `expiry_epoch`.
 
@@ -1508,13 +1667,13 @@ Always parse the real PEM certificate.
 
 ---
 
-## 13.5 Wrong account writes
+## 14.5 Wrong account writes
 
 The Ansible role must verify the current AWS account before writing to Secrets Manager.
 
 ---
 
-## 13.6 Parallel bulk renewals
+## 14.6 Parallel bulk renewals
 
 Do not run all apps in parallel in Phase 1.
 
@@ -1522,19 +1681,19 @@ Sequential processing is safer for Vault, STS, Secrets Manager, and auditability
 
 ---
 
-## 13.7 `cryptography` packaging failures
+## 14.7 `cryptography` packaging failures
 
 Package the Lambda dependencies in a Lambda-compatible build environment.
 
 ---
 
-## 13.8 Claiming restart-overdue detection
+## 14.8 Claiming restart-overdue detection
 
 Phase 1 does not check live application endpoints. It cannot know whether the running app has consumed the renewed secret.
 
 ---
 
-# 14. Definition of Done
+# 15. Definition of Done
 
 Phase 1 is complete when:
 
@@ -1557,29 +1716,35 @@ Phase 1 is complete when:
 - Notifications contain all required operational fields.
 - Per-app failures do not stop the whole Lambda run.
 - No private keys, PEM bodies, tokens, credentials, or full secret payloads appear in logs.
+- Terraform creates shared-account Lambda, IAM, SNS, and CloudWatch infrastructure.
+- Terraform creates spoke-account CertLifecycleRole with correct trust and read-only Secrets Manager access.
+- Terraform state does not contain certificate private keys, PEM bodies, or Bitbucket token values.
+- terraform fmt and terraform validate pass for both root modules.
 ```
 
 ---
 
-# 15. Recommended implementation order
+# 16. Recommended implementation order
 
 Implement in this order:
 
 ```text
-1. Create catalogue schema and README.
-2. Populate initial PTx-<env>-certs.yml files.
-3. Extend Ansible role to write issued cert material to Secrets Manager.
-4. Add issueCertificate(app) to scip-platform-lib.
-5. Create Jenkins cert-issuance pipeline.
-6. Test single-app issuance into a non-prod spoke account.
-7. Test renewal of an existing secret and confirm new AWSCURRENT version.
-8. Deploy CertLifecycleRole into test spoke account.
-9. Deploy expiry checker Lambda in shared account.
-10. Test Lambda against one catalogue and one non-prod app.
-11. Add SNS routing.
-12. Test threshold routing using test certificates or mocked days_left.
-13. Roll out to additional non-prod accounts.
-14. Roll out to prod after non-prod validation.
+1.  Create catalogue schema and README.
+2.  Populate initial PTx-<env>-certs.yml files.
+3.  Extend Ansible role to write issued cert material to Secrets Manager.
+4.  Add issueCertificate(app) to scip-platform-lib.
+5.  Create Jenkins cert-issuance pipeline.
+6.  Test single-app issuance into a non-prod spoke account.
+7.  Test renewal of an existing secret and confirm new AWSCURRENT version.
+8.  Apply shared-services Terraform (SNS topics, Lambda IAM, CloudWatch log group).
+9.  Insert Bitbucket token into shared-account Secrets Manager.
+10. Apply spoke Terraform (CertLifecycleRole) in each non-prod spoke account.
+11. Deploy expiry checker Lambda via shared-services Terraform apply.
+12. Configure EventBridge schedule targeting the Lambda.
+13. Test Lambda against one catalogue and one non-prod app.
+14. Test threshold routing using test certificates or mocked days_left.
+15. Roll out to additional non-prod accounts (repeat step 10 per account).
+16. Roll out to production after non-prod validation.
 ```
 
-This order reduces risk because Jenkins issuance and Secrets Manager writing can be validated before the monitoring/alerting layer depends on them.
+This order reduces risk because Jenkins issuance and Secrets Manager writing can be validated before the monitoring/alerting layer depends on them. Terraform steps (8–12) should be completed before Lambda testing begins.

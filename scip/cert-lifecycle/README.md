@@ -313,6 +313,94 @@ Deploy an EventBridge Scheduler rule to invoke the Lambda on a recurring schedul
 
 ---
 
+## Terraform infrastructure
+
+The AWS infrastructure for Phase 1 is managed using Terraform. Source lives under `terraform/` at the repository root.
+
+### What Terraform manages
+
+| Resource | Account |
+| --- | --- |
+| Expiry checker Lambda, IAM execution role, CloudWatch log group | Shared-services |
+| `scip-cert-renewal` and `scip-cert-p1-alerts` SNS topics | Shared-services |
+| Optional Bitbucket token Secrets Manager secret container (metadata only) | Shared-services |
+| `CertLifecycleRole` cross-account role with read-only cert access | Each spoke account |
+
+Terraform does **not** manage live certificate secret values, private keys, PEM bodies, or the Bitbucket token value.
+
+### Deployment overview
+
+Two root modules are applied independently. Apply shared-services first, then spoke once per account:
+
+```bash
+# Step 1 — shared-services account
+cd terraform/shared-services
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars — set spoke_account_ids, catalogue_urls, Jenkins URLs, runbook_url
+terraform init && terraform plan -out=tfplan && terraform apply tfplan
+
+# Note the Lambda execution role ARN — required for spoke applies
+terraform output lambda_execution_role_arn
+
+# Step 2 — insert Bitbucket token (never managed by Terraform)
+aws secretsmanager put-secret-value \
+  --secret-id "/scip/cert-lifecycle/bitbucket-token" \
+  --secret-string '{"token":"<token>"}' \
+  --region eu-west-2
+
+# Step 3 — each spoke account (repeat per account, switching credentials)
+cd terraform/spoke
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars — set spoke_account_id and lambda_execution_role_arn from Step 1
+terraform init && terraform plan -out=tfplan && terraform apply tfplan
+```
+
+After both applies, complete these manual steps:
+
+- Create an EventBridge schedule rule targeting the Lambda ARN (`terraform output lambda_function_arn`).
+- Subscribe to both SNS topics (`terraform output cert_renewal_topic_arn` and `cert_p1_alert_topic_arn`).
+
+### Lambda packaging
+
+The `cryptography` dependency contains native components and must be built in a Lambda-compatible environment before packaging:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/scip/cert-lifecycle/lambda/expiry_checker":/src \
+  -v "$(pwd)/dist":/out \
+  public.ecr.aws/lambda/python:3.12 \
+  bash -c "pip install -r /src/requirements.txt -t /tmp/pkg && cp /src/*.py /tmp/pkg/ && cd /tmp/pkg && zip -r /out/expiry_checker.zip ."
+```
+
+Pass the zip to Terraform via `lambda_s3_bucket` + `lambda_s3_key` (recommended for CI) or `lambda_package_path` (local path).
+
+### jagent-ec2-role permissions
+
+`jagent-ec2-role` is externally owned and is not managed by this Terraform state. The required policies are:
+
+- `scip/cert-lifecycle/iam/spoke-account-jagent-policy.json` — Secrets Manager write permissions
+- `scip/cert-lifecycle/iam/spoke-account-jagent-kms-addon.json` — KMS addon (customer-managed keys only)
+
+Apply these through whichever process owns that role. Do not set `enable_issuer_permissions = true` in the spoke module unless this Terraform state explicitly owns `jagent-ec2-role`.
+
+### Ongoing operations
+
+| Task | Action |
+| --- | --- |
+| Update Lambda code | Build new zip, upload to S3, update `lambda_s3_object_version`, re-apply shared-services |
+| Add spoke account | Add account ID to `spoke_account_ids` in shared-services tfvars, re-apply, then fresh spoke apply |
+| Rotate Bitbucket token | `aws secretsmanager put-secret-value` directly — no Terraform change needed |
+| Validate code | `terraform fmt -check -recursive terraform/` and `terraform validate` in each root module |
+
+### Security constraints
+
+- Never import or manage certificate secrets (`/scip/certs/*`) in Terraform state.
+- Never set the Bitbucket token value in Terraform variables, locals, or outputs.
+- `terraform.tfvars` is gitignored — do not commit it.
+- Store Terraform state in an encrypted S3 bucket with DynamoDB locking and restricted access.
+
+---
+
 ## Phase 1 limitations
 
 The following are out of scope for Phase 1 and are not implemented:

@@ -3,7 +3,21 @@
     "allow": [
       "Bash(python3 -c ' *)",
       "Bash(git -C /home/harry/git/slug.cert-lifecycle ls-files --others --exclude-standard)",
-      "Bash(git -C /home/harry/git/slug.cert-lifecycle ls-files)"
+      "Bash(git -C /home/harry/git/slug.cert-lifecycle ls-files)",
+      "Bash(terraform version *)",
+      "Bash(tflint --version)",
+      "Bash(checkov --version)",
+      "Bash(tfsec --version)",
+      "Bash(mkdir -p /home/harry/git/slug.cert-lifecycle/terraform/modules/cert-expiry-checker \\\\ *)",
+      "Bash(/snap/bin/terraform fmt *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(/snap/bin/terraform init *)",
+      "Bash(/snap/bin/terraform validate *)",
+      "Bash(echo \"fmt exit: $?\")",
+      "Bash(echo \"shared-services validate exit: $?\")"
+    ],
+    "additionalDirectories": [
+      "/home/harry/git/slug.cert-lifecycle/terraform/modules"
     ]
   }
 }
