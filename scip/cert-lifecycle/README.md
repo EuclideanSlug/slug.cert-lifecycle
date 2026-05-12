@@ -1,0 +1,269 @@
+# SCIP Certificate Lifecycle — Certificate Catalogue
+
+## Purpose
+
+The certificate catalogue is the single source of truth for every application enrolled in the SCIP certificate lifecycle process.
+
+Each catalogue entry defines:
+
+- the application name and certificate parameters (common name, SANs, TTL)
+- the target AWS spoke account
+- the deployment type (EC2 or ECS)
+- the activation behaviour and maintenance window for Phase 2
+
+Every other component — the Jenkins issuance pipeline, the shared library helper, and the expiry checker Lambda — reads these files to determine what to do and where.
+
+---
+
+## Directory structure
+
+Catalogue files live under:
+
+```
+scip/cert-lifecycle/certs/
+```
+
+---
+
+## File naming convention
+
+```
+PTx-<env>-certs.yml
+```
+
+Where:
+
+- `PTx` is the product team identifier, for example `PT2`, `PT3`, `PT5`
+- `env` is the environment: `dev`, `test`, `preprod`, or `prod`
+
+Examples:
+
+```
+PT2-dev-certs.yml
+PT2-test-certs.yml
+PT2-preprod-certs.yml
+PT2-prod-certs.yml
+PT5-preprod-certs.yml
+```
+
+One file per product team per environment. Add a new file when a new product team or environment is enrolled.
+
+---
+
+## Application naming convention
+
+The `name` field must be globally unique and must follow:
+
+```
+{application}-{account_name}
+```
+
+The `deployment.account_name` value must match the suffix after the final `-` in `name`.
+
+Valid:
+
+```yaml
+name: b2bi-preprodc
+deployment:
+  account_name: preprodc
+```
+
+Invalid (suffix mismatch):
+
+```yaml
+name: b2bi-preprodc
+deployment:
+  account_name: devc
+```
+
+Account name examples: `devc`, `testc`, `preprodc`, `prodc`.
+
+Application name examples: `b2bi-devc`, `datapower-high-preprodc`, `ibm-b2bi-prodc`.
+
+---
+
+## Secret path convention
+
+Each application's certificate is stored in the target spoke account Secrets Manager under:
+
+```
+/scip/certs/{name}
+```
+
+Where `{name}` is the `name` field from the catalogue entry.
+
+Example: an entry with `name: b2bi-preprodc` produces:
+
+```
+/scip/certs/b2bi-preprodc
+```
+
+Do not append the account name a second time. The following is incorrect:
+
+```
+/scip/certs/b2bi-preprodc-preprodc   ← WRONG
+```
+
+---
+
+## YAML schema
+
+Each catalogue file must contain a top-level `apps` list. Every item in the list is one enrolled application.
+
+### Minimal EC2 entry
+
+```yaml
+apps:
+  - name: b2bi-preprodc
+    common_name: b2bi.c0081-preprodc.local
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ec2
+      account_id: '302253067501'
+      account_name: preprodc
+    activation: maintenance-window
+    maintenance_window: sun:02:00-04:00
+```
+
+### Minimal ECS entry
+
+```yaml
+apps:
+  - name: datapower-high-preprodc
+    common_name: dp-high.c0081-preprodc.local
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ecs
+      account_id: '302253067501'
+      account_name: preprodc
+      cluster: c0081-preprodc-DP-high
+      service: c0081-preprodc-DP-high-service
+    activation: rolling
+    maintenance_window: mon-fri:22:00-06:00
+```
+
+### Required fields
+
+Every entry must contain:
+
+| Field | Description |
+|---|---|
+| `name` | Globally unique enrolled app name. Must follow `{application}-{account_name}`. |
+| `common_name` | Certificate common name requested from Vault. |
+| `sans` | List of subject alternative names. Use `[]` if none. |
+| `ttl` | Certificate TTL. Standard value is `2160h` (90 days). |
+| `deployment.type` | `ec2` or `ecs`. |
+| `deployment.account_id` | AWS spoke account ID as a quoted string. |
+| `deployment.account_name` | Account/environment suffix, for example `devc`, `preprodc`, `prodc`. |
+| `activation` | Phase 2 activation behaviour. Required in Phase 1 but not acted on. |
+| `maintenance_window` | Phase 2 maintenance window. Required in Phase 1 but not acted on. |
+
+ECS entries must also include:
+
+| Field | Description |
+|---|---|
+| `deployment.cluster` | ECS cluster name. |
+| `deployment.service` | ECS service name. |
+
+### Deployment types
+
+| Type | When to use |
+|---|---|
+| `ec2` | Application runs on EC2. Certificate is consumed by the instance at startup. |
+| `ecs` | Application runs as an ECS service. Certificate is consumed by the container. |
+
+---
+
+## TTL standard
+
+All certificates use a TTL of `2160h` (90 days). Do not use a different value unless a specific application requirement has been agreed with the security team.
+
+The expiry checker Lambda routes alerts based on actual PEM expiry parsed from the certificate stored in Secrets Manager:
+
+| Days remaining | Action |
+|---|---|
+| > 30 | Log only — no alert |
+| 15–30 | Renewal-required notification via SNS |
+| ≤ 14 (including expired) | P1 action-required notification via SNS |
+
+---
+
+## How to add a new application
+
+1. Identify the correct catalogue file for the product team and environment, for example `PT2-preprod-certs.yml`. Create the file if it does not exist, following the naming convention.
+
+2. Add a new entry to the `apps` list following the schema above.
+
+3. Use a `name` that follows `{application}-{account_name}` and is unique across the file.
+
+4. Set `deployment.account_id` to the AWS account ID of the target spoke account (quoted string).
+
+5. Confirm `deployment.account_name` matches the suffix of `name`.
+
+6. Set `deployment.type` to `ec2` or `ecs`. For ECS, add `deployment.cluster` and `deployment.service`.
+
+7. Leave `ttl` as `2160h` unless a specific deviation has been agreed.
+
+8. Set `activation` and `maintenance_window` to appropriate values. These are not acted on in Phase 1.
+
+9. Open a pull request. The PR must be reviewed by at least one other team member before merge.
+
+10. After merge, run the Jenkins cert-issuance pipeline with:
+    - `PRODUCT_TEAM` = the PTx value
+    - `ENVIRONMENT` = the environment
+    - `APP_NAME` = the `name` value from the new entry
+
+---
+
+## How Jenkins uses the catalogue
+
+The Jenkins cert-issuance pipeline reads the catalogue file selected by the `PRODUCT_TEAM` and `ENVIRONMENT` parameters:
+
+```
+scip/cert-lifecycle/certs/${PRODUCT_TEAM}-${ENVIRONMENT}-certs.yml
+```
+
+If `APP_NAME` is provided, the pipeline finds and processes exactly one matching entry. If `APP_NAME` is empty, the pipeline processes all entries sequentially.
+
+For each entry the pipeline calls `issueCertificate(app)` from `scip-platform-lib`, which:
+
+1. Validates required fields.
+2. Derives the secret path as `/scip/certs/{app.name}`.
+3. Assumes `jagent-ec2-role` in the spoke account.
+4. Invokes the `universal-vault-cert-issuer` Ansible role.
+5. The role writes the issued certificate to `/scip/certs/{app.name}` in the spoke account Secrets Manager, creating it if absent or writing a new version if it exists.
+
+---
+
+## How the expiry checker Lambda uses the catalogue
+
+The expiry checker Lambda runs on a schedule in the shared services account. It:
+
+1. Reads catalogue files from the Bitbucket API using a token stored in shared-account Secrets Manager.
+2. Iterates every enrolled application.
+3. Assumes `CertLifecycleRole` in the relevant spoke account.
+4. Reads `/scip/certs/{app.name}` from that spoke account's Secrets Manager.
+5. Extracts the `certificate` field and parses actual PEM expiry using the Python `cryptography` library.
+6. Routes the result to log-only, renewal SNS, or P1 SNS based on days remaining.
+7. Continues processing if an individual application fails.
+
+The Lambda reads `deployment.account_id` and `deployment.account_name` directly from each catalogue entry. No separate configuration is required.
+
+---
+
+## Phase 1 limitations
+
+The following are out of scope for Phase 1 and are not implemented:
+
+- Application restart or reload automation
+- Automatic Jenkins triggering after expiry detection
+- Live application endpoint certificate checking
+- Restart-overdue detection
+- KDB, JKS, or PKCS12 certificate format conversion
+- Vault PKI role changes
+- EventBridge scheduling (unless implemented as a separate story)
+- DynamoDB alert deduplication
+
+The `activation` and `maintenance_window` fields are present in the catalogue schema to support Phase 2 but are not read or acted on by any Phase 1 component.

@@ -1,0 +1,12 @@
+# TODO: Replace account_id '000000000000' with the real AWS account ID for devc before first issuance.
+apps:
+  - name: b2bi-devc
+    common_name: b2bi.c0081-devc.local
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ec2
+      account_id: '000000000000'
+      account_name: devc
+    activation: maintenance-window
+    maintenance_window: sun:02:00-04:00
