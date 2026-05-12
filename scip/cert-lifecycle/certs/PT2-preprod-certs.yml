@@ -1,3 +1,4 @@
+# TODO: Replace account_id '000000000000' with the real AWS account ID for prodc before first issuance.
 apps:
   - name: b2bi-preprodc
     common_name: b2bi.c0081-preprodc.local
@@ -5,7 +6,7 @@ apps:
     ttl: 2160h
     deployment:
       type: ec2
-      account_id: '302253067501'
+      account_id: '000000000000'
       account_name: preprodc
     activation: maintenance-window
     maintenance_window: sun:02:00-04:00
@@ -16,7 +17,7 @@ apps:
     ttl: 2160h
     deployment:
       type: ecs
-      account_id: '302253067501'
+      account_id: '000000000000'
       account_name: preprodc
       cluster: c0081-preprodc-DP-high
       service: c0081-preprodc-DP-high-service
