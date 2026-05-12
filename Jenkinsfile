@@ -7,7 +7,7 @@ pipeline {
     parameters {
         choice(
             name: 'PRODUCT_TEAM',
-            choices: ['PT2', 'PT3', 'PT4', 'PT5'],
+            choices: ['PT1', 'PT2', 'PT3', 'PT4', 'PT5'],
             description: 'Product team certificate catalogue to use'
         )
         choice(
