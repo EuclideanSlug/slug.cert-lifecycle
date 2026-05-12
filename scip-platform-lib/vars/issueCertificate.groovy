@@ -72,22 +72,19 @@ private void _validateApp(Map app) {
 
 @NonCPS
 private Map _buildVarsMap(Map app, String secretName) {
-    Map vars = [
-        app_name:        app.name,
-        common_name:     app.common_name,
-        sans:            app.sans ?: [],
-        ttl:             app.ttl,
-        deployment_type: app.deployment.type,
-        account_id:      app.deployment.account_id,
-        account_name:    app.deployment.account_name,
-        secret_name:     secretName,
-        aws_region:      'eu-west-2',
+    return [
+        app_name:           app.name,
+        common_name:        app.common_name,
+        sans:               app.sans ?: [],
+        ttl:                app.ttl,
+        deployment_type:    app.deployment.type,
+        account_id:         app.deployment.account_id,
+        account_name:       app.deployment.account_name,
+        secret_name:        secretName,
+        aws_region:         'eu-west-2',
+        activation:         app.activation ?: '',
+        maintenance_window: app.maintenance_window ?: '',
     ]
-    if (app.deployment.type == 'ecs') {
-        vars.ecs_cluster = app.deployment.cluster
-        vars.ecs_service = app.deployment.service
-    }
-    return vars
 }
 
 @NonCPS

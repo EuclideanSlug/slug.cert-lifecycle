@@ -1,5 +1,4 @@
 {
-  "Comment": "Permission policy for CertLifecycleRole in each spoke account. Replace <spoke-account-id> before applying. Attach the trust policy (spoke-account-certlifecycle-role-trust-policy.json) to the same role.",
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -10,20 +9,6 @@
         "secretsmanager:DescribeSecret"
       ],
       "Resource": "arn:aws:secretsmanager:eu-west-2:<spoke-account-id>:secret:/scip/certs/*"
-    },
-    {
-      "Sid": "DecryptCertificateSecretsViaSecretsManager",
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt"
-      ],
-      "Resource": "arn:aws:kms:eu-west-2:<spoke-account-id>:key/<kms-key-id>",
-      "Condition": {
-        "StringEquals": {
-          "kms:ViaService": "secretsmanager.eu-west-2.amazonaws.com"
-        }
-      },
-      "Comment": "Include this statement only if certificate secrets use a customer-managed KMS key. Replace <kms-key-id> with the key ID or ARN."
     }
   ]
 }

@@ -1,6 +1,5 @@
 {
   "Version": "2012-10-17",
-  "Comment": "Replace <account-id> with the target spoke account ID before applying.",
   "Statement": [
     {
       "Sid": "CreateAndUpdateCertSecrets",

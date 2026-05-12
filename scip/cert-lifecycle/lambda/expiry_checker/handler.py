@@ -284,6 +284,7 @@ def _build_renewal_message(
     expiry_date: str,
 ) -> tuple[str, str]:
     subject = f'[CERT RENEWAL NEEDED] {app_name} expires in {days_left} days'
+    subject = subject[:100]
     body = (
         f'Certificate renewal is required.\n\n'
         f'Application:         {app_name}\n'
@@ -316,6 +317,7 @@ def _build_p1_message(
         )
     else:
         subject = f'[CERT P1 - ACTION REQUIRED] {app_name} expires in {days_left} days'
+    subject = subject[:100]
 
     body = (
         f'P1 certificate action is required.\n\n'

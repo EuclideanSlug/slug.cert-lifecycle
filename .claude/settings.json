@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(git -C /home/harry/git/slug.cert-lifecycle ls-files --others --exclude-standard)",
+      "Bash(git -C /home/harry/git/slug.cert-lifecycle ls-files)"
+    ]
+  }
+}

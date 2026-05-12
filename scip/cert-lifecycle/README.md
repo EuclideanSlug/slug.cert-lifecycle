@@ -120,7 +120,7 @@ apps:
     ttl: 2160h
     deployment:
       type: ec2
-      account_id: '302253067501'
+      account_id: '<account-id>'
       account_name: preprodc
     activation: maintenance-window
     maintenance_window: sun:02:00-04:00
@@ -136,7 +136,7 @@ apps:
     ttl: 2160h
     deployment:
       type: ecs
-      account_id: '302253067501'
+      account_id: '<account-id>'
       account_name: preprodc
       cluster: c0081-preprodc-DP-high
       service: c0081-preprodc-DP-high-service
@@ -250,6 +250,66 @@ The expiry checker Lambda runs on a schedule in the shared services account. It:
 7. Continues processing if an individual application fails.
 
 The Lambda reads `deployment.account_id` and `deployment.account_name` directly from each catalogue entry. No separate configuration is required.
+
+---
+
+## Ansible role variables
+
+The `universal-vault-cert-issuer` role has the following defaults (defined in `ansible/roles/universal-vault-cert-issuer/defaults/main.yml`):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `aws_region` | `eu-west-2` | AWS region for Secrets Manager operations. |
+| `vault_pki_path` | `pki` | Mount path of the Vault PKI secrets engine. |
+| `vault_pki_role` | `internal-tls` | Vault PKI role used for certificate issuance. |
+| `sans` | `[]` | List of subject alternative names. |
+
+To override `vault_pki_path` or `vault_pki_role` for a specific run, pass them as Ansible extra vars:
+
+```
+ansible-playbook scip/cert-lifecycle/ansible/playbooks/issue-certificate.yml \
+    --extra-vars @vars.json \
+    --extra-vars '{"vault_pki_path": "pki_internal", "vault_pki_role": "my-role"}'
+```
+
+---
+
+## Lambda configuration (expiry checker)
+
+The expiry checker Lambda (`scip/cert-lifecycle/lambda/expiry_checker/handler.py`) requires the following configuration when deployed.
+
+### Required environment variables
+
+| Variable | Description |
+| --- | --- |
+| `AWS_REGION` | AWS region for all AWS API calls, e.g. `eu-west-2`. |
+| `BITBUCKET_TOKEN_SECRET_ID` | Secrets Manager secret ID holding the Bitbucket API token. Expected format: `{"token": "<value>"}`. |
+| `BITBUCKET_CATALOGUE_URLS` | Comma-separated list of raw Bitbucket file URLs for the catalogue YAML files to process. |
+| `SPOKE_ROLE_NAME` | IAM role name to assume in each spoke account, e.g. `CertLifecycleRole`. |
+| `CERT_RENEWAL_TOPIC_ARN` | ARN of the SNS topic for renewal notifications (15–30 days remaining). |
+| `CERT_P1_ALERT_TOPIC_ARN` | ARN of the SNS topic for P1 alerts (≤14 days remaining, including expired). |
+| `JENKINS_JOB_NAME` | Jenkins job name included in notification bodies. |
+| `JENKINS_JOB_URL` | Jenkins job URL included in notification bodies. |
+| `RUNBOOK_URL` | Runbook URL included in notification bodies. |
+
+### Recommended Lambda settings
+
+| Setting | Recommended value |
+| --- | --- |
+| Timeout | 300 seconds (5 minutes) minimum. Scale up with the number of enrolled apps. |
+| Memory | 256 MB minimum. |
+| Runtime | Python 3.12 (or 3.9+). |
+
+### Packaging
+
+The `cryptography` dependency includes native (C) components and must be compiled in a Lambda-compatible environment before packaging:
+
+- Build using the official Lambda container image: `public.ecr.aws/lambda/python:<runtime>`
+- Or build on an Amazon Linux 2 / AL2023 EC2 instance
+
+### Schedule
+
+Deploy an EventBridge Scheduler rule to invoke the Lambda on a recurring schedule. A daily schedule (e.g. `rate(1 day)`) is recommended so alerts are raised promptly when a certificate crosses a threshold.
 
 ---
 

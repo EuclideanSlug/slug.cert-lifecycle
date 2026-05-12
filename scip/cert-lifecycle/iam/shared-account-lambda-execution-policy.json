@@ -1,5 +1,4 @@
 {
-  "Comment": "Execution role policy for the SCIP expiry checker Lambda in the shared services account. Replace <shared-account-id> and each <spoke-account-id-N> before applying.",
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -40,7 +39,7 @@
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
-      "Resource": "*"
+      "Resource": "arn:aws:logs:eu-west-2:<shared-account-id>:log-group:/aws/lambda/*"
     }
   ]
 }

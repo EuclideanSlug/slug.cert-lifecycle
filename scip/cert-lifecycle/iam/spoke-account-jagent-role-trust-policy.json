@@ -2,10 +2,10 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AllowSharedAccountLambdaToAssume",
+      "Sid": "AllowSharedServicesJenkinsAgentToAssume",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::<shared-account-id>:role/<lambda-execution-role-name>"
+        "AWS": "arn:aws:iam::<shared-account-id>:role/<jenkins-agent-instance-profile-role>"
       },
       "Action": "sts:AssumeRole"
     }

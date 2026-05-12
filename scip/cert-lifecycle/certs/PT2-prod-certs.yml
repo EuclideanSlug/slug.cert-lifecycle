@@ -1,4 +1,4 @@
-# TODO: Replace account_id '000000000000' with the real AWS account ID for prodc before first issuance.
+# TODO: Replace account_id '<account-id>' with the real AWS account ID for prodc before first issuance.
 apps:
   - name: ibm-b2bi-prodc
     common_name: ibm-b2bi.c0081-prodc.local
@@ -6,7 +6,7 @@ apps:
     ttl: 2160h
     deployment:
       type: ec2
-      account_id: '000000000000'
+      account_id: '<account-id>'
       account_name: prodc
     activation: maintenance-window
     maintenance_window: sun:01:00-03:00
