@@ -1,0 +1,27 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - app_name is defined and app_name | length > 0
+      - common_name is defined and common_name | length > 0
+      - ttl is defined and ttl | length > 0
+      - account_id is defined and account_id | length > 0
+      - account_name is defined and account_name | length > 0
+      - secret_name is defined and secret_name | length > 0
+      - aws_region is defined and aws_region | length > 0
+      - sans is defined
+    fail_msg: >-
+      Missing required variable. Required: app_name, common_name, ttl,
+      account_id, account_name, secret_name, aws_region, sans
+
+- name: Validate app_name ends with account_name
+  ansible.builtin.assert:
+    that:
+      - app_name.endswith('-' + account_name)
+    fail_msg: "app_name '{{ app_name }}' must end with '-{{ account_name }}'"
+
+- name: Issue certificate from Vault
+  ansible.builtin.include_tasks: vault_issue.yml
+
+- name: Write certificate to Secrets Manager
+  ansible.builtin.include_tasks: secrets_manager_write.yml

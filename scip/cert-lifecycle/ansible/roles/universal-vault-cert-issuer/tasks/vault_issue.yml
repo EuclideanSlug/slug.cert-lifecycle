@@ -1,0 +1,19 @@
+---
+- name: Issue certificate from Vault PKI
+  community.hashi_vault.vault_write:
+    path: "{{ vault_pki_path }}/issue/{{ vault_pki_role }}"
+    data:
+      common_name: "{{ common_name }}"
+      alt_names: "{{ sans | join(',') if sans | length > 0 else omit }}"
+      ttl: "{{ ttl }}"
+  register: vault_response
+  no_log: true
+
+- name: Extract certificate material from Vault response
+  ansible.builtin.set_fact:
+    issued_certificate: "{{ vault_response.data.data.certificate }}"
+    issued_private_key: "{{ vault_response.data.data.private_key }}"
+    issued_ca_chain: "{{ vault_response.data.data.issuing_ca }}"
+    issued_full_chain: "{{ vault_response.data.data.certificate }}\n{{ vault_response.data.data.issuing_ca }}"
+    issued_expiry_epoch: "{{ vault_response.data.data.expiration | string }}"
+  no_log: true

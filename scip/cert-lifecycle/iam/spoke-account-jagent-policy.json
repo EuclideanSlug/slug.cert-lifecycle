@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Comment": "Replace <account-id> with the target spoke account ID before applying.",
+  "Statement": [
+    {
+      "Sid": "CreateAndUpdateCertSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:TagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/scip/certs/*"
+    }
+  ]
+}
