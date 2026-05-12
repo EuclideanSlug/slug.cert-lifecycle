@@ -1,0 +1,14 @@
+{
+  "Comment": "Trust policy for CertLifecycleRole in each spoke account. Replace <shared-account-id> and <lambda-execution-role-name> before applying.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSharedAccountLambdaToAssume",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<shared-account-id>:role/<lambda-execution-role-name>"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "Comment": "Execution role policy for the SCIP expiry checker Lambda in the shared services account. Replace <shared-account-id> and each <spoke-account-id-N> before applying.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadBitbucketToken",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<shared-account-id>:secret:/scip/cert-lifecycle/bitbucket-token-*"
+    },
+    {
+      "Sid": "AssumeSpokeCertLifecycleRoles",
+      "Effect": "Allow",
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::<spoke-account-id-1>:role/CertLifecycleRole",
+        "arn:aws:iam::<spoke-account-id-2>:role/CertLifecycleRole"
+      ]
+    },
+    {
+      "Sid": "PublishCertificateNotifications",
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish"
+      ],
+      "Resource": [
+        "arn:aws:sns:eu-west-2:<shared-account-id>:scip-cert-renewal",
+        "arn:aws:sns:eu-west-2:<shared-account-id>:scip-cert-p1-alerts"
+      ]
+    },
+    {
+      "Sid": "WriteLambdaLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

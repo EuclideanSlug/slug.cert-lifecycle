@@ -1,0 +1,13 @@
+# Lambda dependencies for the SCIP certificate expiry checker.
+#
+# IMPORTANT: 'cryptography' contains native (C) components. It must be built
+# in a Lambda-compatible environment before packaging:
+#   - Amazon Linux 2 / AL2023 EC2 instance or Docker image, or
+#   - A CI build step using public.ecr.aws/lambda/python:<runtime> as the base.
+#
+# boto3 is available in the Lambda runtime and is not listed here.
+# Pin it explicitly if a specific version is required for reproducible builds.
+
+cryptography>=42.0.0
+PyYAML>=6.0
+requests>=2.31.0
