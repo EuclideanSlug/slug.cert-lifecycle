@@ -1,6 +1,10 @@
-# Example tfvars for the shared-services root module.
-# Copy to terraform.tfvars and fill in real values before running terraform plan.
-# DO NOT commit terraform.tfvars — it is listed in .gitignore.
+# Prod shared-services variable file.
+# Copy to prod.tfvars and fill in real values before running terraform.
+# DO NOT commit prod.tfvars — it may contain account IDs and configuration.
+# This .example file may be committed; it contains only placeholders.
+#
+# Backend config is separate: create envs/prod-backend.hcl (see terraform-deployment.md).
+# Apply the prod shared-services root before applying any prod spoke roots.
 
 aws_region = "eu-west-2"
 
@@ -10,23 +14,16 @@ cert_renewal_topic_name  = "scip-cert-renewal"
 cert_p1_alert_topic_name = "scip-cert-p1-alerts"
 
 # ── Bitbucket token secret ────────────────────────────────────────────────────
-# Set create_bitbucket_token_secret = false and provide bitbucket_token_secret_arn
-# if the secret already exists outside this Terraform state.
 
 create_bitbucket_token_secret = true
 bitbucket_token_secret_name   = "/scip/cert-lifecycle/bitbucket-token"
-# bitbucket_token_secret_arn  = "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/scip/cert-lifecycle/bitbucket-token-XXXXXX"
+# bitbucket_token_secret_arn  = "arn:aws:secretsmanager:eu-west-2:<prodc-account-id>:secret:/scip/cert-lifecycle/bitbucket-token-XXXXXX"
 
 # ── Lambda packaging ──────────────────────────────────────────────────────────
-# Supply exactly one of lambda_package_path (local build) or lambda_s3_bucket + lambda_s3_key.
 
-# Option A: local zip (built in a Lambda-compatible environment)
-# lambda_package_path = "../../dist/expiry_checker.zip"
-
-# Option B: S3 zip (CI-built artefact)
-lambda_s3_bucket         = "scip-lambda-artefacts-<account-id>"
+lambda_s3_bucket         = "scip-lambda-artefacts-<prod-shared-account-id>"
 lambda_s3_key            = "cert-lifecycle/expiry_checker.zip"
-lambda_s3_object_version = "XXXXXXXXXXXXXXXXXXXXXX"
+lambda_s3_object_version = "<s3-object-version>"
 
 # ── Lambda tuning ─────────────────────────────────────────────────────────────
 
@@ -37,15 +34,20 @@ lambda_memory_size         = 256
 lambda_log_retention_days  = 30
 
 # ── Lambda runtime configuration ──────────────────────────────────────────────
+# prod shared-services (deployed into prodc) monitors all prod spoke accounts (prodd–prodj).
 
-catalogue_urls = "https://bitbucket.example.com/projects/SCIP/repos/cert-lifecycle/raw/scip/cert-lifecycle/certs/PT2-dev-certs.yml,https://bitbucket.example.com/projects/SCIP/repos/cert-lifecycle/raw/scip/cert-lifecycle/certs/PT2-preprod-certs.yml,https://bitbucket.example.com/projects/SCIP/repos/cert-lifecycle/raw/scip/cert-lifecycle/certs/PT2-prod-certs.yml"
+catalogue_urls = "https://bitbucket.example.com/projects/SCIP/repos/cert-lifecycle/raw/scip/cert-lifecycle/certs/PT2-prod-certs.yml"
 
 spoke_role_name = "CertLifecycleRole"
 
 spoke_account_ids = [
-  "<dev-account-id>",
-  "<preprod-account-id>",
-  "<prod-account-id>",
+  "<prodd-account-id>",
+  "<prode-account-id>",
+  "<prodf-account-id>",
+  "<prodg-account-id>",
+  "<prodh-account-id>",
+  "<prodi-account-id>",
+  "<prodj-account-id>",
 ]
 
 jenkins_job_name = "scip-cert-lifecycle/issue-certificate"
@@ -55,6 +57,6 @@ runbook_url      = "https://confluence.example.com/display/SCIP/cert-lifecycle-r
 # ── Tagging ───────────────────────────────────────────────────────────────────
 
 tags = {
-  "environment" = "shared-services"
+  "environment" = "prod"
   "team"        = "platform"
 }

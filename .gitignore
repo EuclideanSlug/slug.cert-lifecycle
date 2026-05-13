@@ -9,6 +9,10 @@ __pycache__/
 *.tfstate
 *.tfstate.backup
 terraform.tfvars
+# Environment-specific var files and backend configs in envs/ dirs are operator-created.
+# Only .example files are committed.
+terraform/*/envs/*.tfvars
+terraform/*/envs/*.hcl
 override.tf
 override.tf.json
 *_override.tf
