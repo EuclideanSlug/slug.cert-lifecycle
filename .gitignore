@@ -8,7 +8,7 @@ dist/
 build/
 *.egg-info/
 
-# Local agent/editor settings
+# Any local agent/editor settings you have locally
 .claude/settings*.json
 .codex/
 
