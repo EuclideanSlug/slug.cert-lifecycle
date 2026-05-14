@@ -1,7 +1,7 @@
-# TODO: Replace account_id '<account-id>' with the real AWS account ID for devc before first issuance.
+# Replace account_id '<account-id>' with the real AWS account ID for devc before first issuance.
 apps:
-  - name: b2bi-devc
-    common_name: b2bi.c0081-devc.local
+  - name: payments-api-devc
+    common_name: payments-api.dev.example.internal
     sans: []
     ttl: 2160h
     deployment:

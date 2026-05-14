@@ -1,7 +1,7 @@
-# TODO: Replace account_id '<account-id>' with the real AWS account ID for prodc before first issuance.
+# Replace account_id '<account-id>' with the real AWS account ID for prodc before first issuance.
 apps:
-  - name: ibm-b2bi-prodc
-    common_name: ibm-b2bi.c0081-prodc.local
+  - name: payments-api-prodc
+    common_name: payments-api.prod.example.internal
     sans: []
     ttl: 2160h
     deployment:

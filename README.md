@@ -4,6 +4,8 @@ Slug Certificate Lifecycle provides catalogue-driven TLS certificate issuance, r
 
 `slug` is the example platform prefix used throughout this repository. When adopting this project, replace `slug` and display-name `Slug` values with the prefix used by your own platform. This includes paths, Secrets Manager names, IAM resource names, Jenkins shared-library names, Terraform examples, and documentation examples.
 
+The product-team codes, account suffixes, Jenkins agent labels, and example application names are placeholders. Adapt them to your platform before deploying.
+
 The repository contains:
 
 - certificate catalogues under `slug/cert-lifecycle/certs/`
@@ -21,7 +23,6 @@ The repository contains:
 | Add or validate a catalogue entry | [Catalogue reference](docs/catalogue-reference.md) |
 | Deploy infrastructure | [Deployment](docs/deployment.md) and [Terraform](docs/terraform.md) |
 | Respond to alerts or renew a certificate | [Operations runbook](docs/operations-runbook.md) |
-| Review original Phase 1 design context | [Archived statement of need](docs/archive/phase-1-statement-of-need.md) |
 
 ## Quick model
 

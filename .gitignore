@@ -2,13 +2,31 @@ __pycache__/
 *.pyc
 *.pyo
 .ansible/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Local agent/editor settings
+.claude/settings*.json
+.codex/
+
+# Local environment files
+.env
+.env.*
+!.env.example
 
 # Terraform
-.terraform/
+**/.terraform/
 # .terraform.lock.hcl is intentionally NOT ignored so provider version pins are committed.
 *.tfstate
+*.tfstate.*
 *.tfstate.backup
 terraform.tfvars
+terraform.tfvars.json
+*.tfvars
+*.tfvars.json
 # Environment-specific var files and backend configs in envs/ dirs are operator-created.
 # Only .example files are committed.
 terraform/*/envs/*.tfvars
@@ -17,3 +35,21 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+tfplan
+tfdestroy
+*.tfplan
+crash.log
+crash.*.log
+
+# Build artefacts and packaged Lambda bundles
+*.zip
+
+# Certificate and key material
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.kdb

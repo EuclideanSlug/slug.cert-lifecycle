@@ -1,0 +1,57 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init shared-services
+        run: terraform -chdir=terraform/shared-services init -backend=false
+
+      - name: Terraform validate shared-services
+        run: terraform -chdir=terraform/shared-services validate
+
+      - name: Terraform init spoke
+        run: terraform -chdir=terraform/spoke init -backend=false
+
+      - name: Terraform validate spoke
+        run: terraform -chdir=terraform/spoke validate
+
+      - name: Validate catalogues
+        run: python3 slug/cert-lifecycle/scripts/validate-catalogues.py
+
+      - name: Compile Python
+        run: python3 -m py_compile slug/cert-lifecycle/lambda/expiry_checker/handler.py slug/cert-lifecycle/scripts/validate-catalogues.py
+
+      - name: Validate IAM JSON
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in Path("slug/cert-lifecycle/iam").glob("*.json"):
+              with path.open() as handle:
+                  json.load(handle)
+
+          print("IAM JSON ok")
+          PY

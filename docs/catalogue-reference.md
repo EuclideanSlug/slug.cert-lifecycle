@@ -47,8 +47,8 @@ EC2:
 
 ```yaml
 apps:
-  - name: b2bi-preprodc
-    common_name: b2bi.c0081-preprodc.local
+  - name: payments-api-preprodc
+    common_name: payments-api.preprod.example.internal
     sans: []
     ttl: 2160h
     deployment:
@@ -63,16 +63,16 @@ ECS:
 
 ```yaml
 apps:
-  - name: datapower-high-preprodc
-    common_name: dp-high.c0081-preprodc.local
+  - name: edge-proxy-preprodc
+    common_name: edge-proxy.preprod.example.internal
     sans: []
     ttl: 2160h
     deployment:
       type: ecs
       account_id: '<account-id>'
       account_name: preprodc
-      cluster: c0081-preprodc-DP-high
-      service: c0081-preprodc-DP-high-service
+      cluster: example-preprodc-edge
+      service: example-preprodc-edge-service
     activation: rolling
     maintenance_window: mon-fri:22:00-06:00
 ```
@@ -88,7 +88,7 @@ Use:
 Valid:
 
 ```yaml
-name: b2bi-preprodc
+name: payments-api-preprodc
 deployment:
   account_name: preprodc
 ```
@@ -96,7 +96,7 @@ deployment:
 Invalid:
 
 ```yaml
-name: b2bi-preprodc
+name: payments-api-preprodc
 deployment:
   account_name: devc
 ```
@@ -111,10 +111,10 @@ The secret is stored in the target spoke account under:
 /slug/certs/{name}
 ```
 
-For `name: b2bi-preprodc`, the path is:
+For `name: payments-api-preprodc`, the path is:
 
 ```text
-/slug/certs/b2bi-preprodc
+/slug/certs/payments-api-preprodc
 ```
 
 ## Secret payload
@@ -128,7 +128,7 @@ Ansible writes structured JSON:
   "ca_chain": "<ca-chain-pem>",
   "full_chain": "<full-chain-pem>",
   "expiry_epoch": "1780000000",
-  "common_name": "b2bi.c0081-preprodc.local"
+  "common_name": "payments-api.preprod.example.internal"
 }
 ```
 

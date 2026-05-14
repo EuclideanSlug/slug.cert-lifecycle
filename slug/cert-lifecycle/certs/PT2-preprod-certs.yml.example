@@ -1,7 +1,7 @@
-# TODO: Replace account_id '<account-id>' with the real AWS account ID for preprodc before first issuance.
+# Replace account_id '<account-id>' with the real AWS account ID for preprodc before first issuance.
 apps:
-  - name: b2bi-preprodc
-    common_name: b2bi.c0081-preprodc.local
+  - name: payments-api-preprodc
+    common_name: payments-api.preprod.example.internal
     sans: []
     ttl: 2160h
     deployment:
@@ -11,15 +11,15 @@ apps:
     activation: maintenance-window
     maintenance_window: sun:02:00-04:00
 
-  - name: datapower-high-preprodc
-    common_name: dp-high.c0081-preprodc.local
+  - name: edge-proxy-preprodc
+    common_name: edge-proxy.preprod.example.internal
     sans: []
     ttl: 2160h
     deployment:
       type: ecs
       account_id: '<account-id>'
       account_name: preprodc
-      cluster: c0081-preprodc-DP-high
-      service: c0081-preprodc-DP-high-service
+      cluster: example-preprodc-edge
+      service: example-preprodc-edge-service
     activation: rolling
     maintenance_window: mon-fri:22:00-06:00

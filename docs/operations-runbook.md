@@ -21,7 +21,7 @@ The alert body includes the application name, account, expiry date, Jenkins job 
 | --- | --- |
 | `PRODUCT_TEAM` | Product team prefix from the catalogue filename, for example `PT2` |
 | `ENVIRONMENT` | `dev`, `test`, `preprod`, or `prod` |
-| `APP_NAME` | Full catalogue `name`, for example `b2bi-preprodc` |
+| `APP_NAME` | Full catalogue `name`, for example `payments-api-preprodc` |
 
 3. Run the build.
 4. Confirm the build completes successfully.
@@ -42,7 +42,7 @@ Run in the spoke account:
 
 ```bash
 aws secretsmanager describe-secret \
-  --secret-id /slug/certs/b2bi-preprodc \
+  --secret-id /slug/certs/payments-api-preprodc \
   --region eu-west-2 \
   --query 'VersionIdsToStages'
 ```
@@ -53,7 +53,7 @@ To check the certificate expiry without printing the private key:
 
 ```bash
 aws secretsmanager get-secret-value \
-  --secret-id /slug/certs/b2bi-preprodc \
+  --secret-id /slug/certs/payments-api-preprodc \
   --region eu-west-2 \
   --query 'SecretString' \
   --output text | python3 -c "
@@ -107,7 +107,7 @@ aws logs describe-log-streams \
 Healthy app log:
 
 ```json
-{"status": "ok", "app_name": "b2bi-preprodc", "account_name": "preprodc", "days_left": 45, "expiry_date": "2026-06-30T12:00:00Z"}
+{"status": "ok", "app_name": "payments-api-preprodc", "account_name": "preprodc", "days_left": 45, "expiry_date": "2026-06-30T12:00:00Z"}
 ```
 
 Run summary:
@@ -126,7 +126,7 @@ Only roll back when the newly issued certificate is wrong. The previous version 
 
    ```bash
    aws secretsmanager list-secret-version-ids \
-     --secret-id /slug/certs/b2bi-preprodc \
+     --secret-id /slug/certs/payments-api-preprodc \
      --region eu-west-2 \
      --query 'Versions[*].{VersionId:VersionId,Labels:VersionStages}'
    ```
@@ -136,7 +136,7 @@ Only roll back when the newly issued certificate is wrong. The previous version 
 
    ```bash
    aws secretsmanager update-secret-version-stage \
-     --secret-id /slug/certs/b2bi-preprodc \
+     --secret-id /slug/certs/payments-api-preprodc \
      --version-stage AWSCURRENT \
      --move-to-version-id <previous-version-id> \
      --remove-from-version-id <current-version-id> \
