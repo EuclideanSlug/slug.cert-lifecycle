@@ -10,6 +10,14 @@
       "Resource": "arn:aws:secretsmanager:eu-west-2:<shared-account-id>:secret:/slug/cert-lifecycle/bitbucket-token-*"
     },
     {
+      "Sid": "ReadJenkinsTriggerSecret",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<shared-account-id>:secret:/slug/cert-lifecycle/jenkins-trigger-*"
+    },
+    {
       "Sid": "AssumeSpokeCertLifecycleRoles",
       "Effect": "Allow",
       "Action": [

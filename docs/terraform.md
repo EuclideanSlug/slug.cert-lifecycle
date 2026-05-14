@@ -6,7 +6,7 @@ Terraform manages AWS infrastructure for certificate expiry monitoring and spoke
 
 | Root | Applied in | Purpose |
 | --- | --- | --- |
-| `terraform/shared-services/` | shared-services account | Lambda, SNS, CloudWatch logs, Lambda execution role, optional Bitbucket token secret container |
+| `terraform/shared-services/` | shared-services account | Lambda, EventBridge Scheduler, SNS, CloudWatch logs, Lambda execution role, optional Bitbucket and Jenkins trigger secret containers |
 | `terraform/spoke/` | each spoke account | `CertLifecycleRole`, read policy, optional KMS decrypt, optional jagent write policy |
 
 `shared-services` requires Terraform `>= 1.9.0`. `spoke` requires Terraform `>= 1.3.0`.
@@ -119,7 +119,10 @@ Important shared-services inputs:
 - `lambda_s3_bucket` and `lambda_s3_key`, or `lambda_package_path`
 - `jenkins_job_name`
 - `jenkins_job_url`
+- `jenkins_trigger_secret_name`
 - `runbook_url`
+- `daily_schedule_expression`
+- `daily_schedule_timezone`
 
 Important shared-services outputs:
 
@@ -129,6 +132,9 @@ Important shared-services outputs:
 - `cert_renewal_topic_arn`
 - `cert_p1_alert_topic_arn`
 - `bitbucket_token_secret_arn`
+- `jenkins_trigger_secret_arn`
+- `daily_schedule_name`
+- `daily_schedule_arn`
 
 Important spoke inputs:
 
@@ -150,19 +156,42 @@ Terraform sets:
 - `CERT_P1_ALERT_TOPIC_ARN`
 - `JENKINS_JOB_NAME`
 - `JENKINS_JOB_URL`
+- `JENKINS_TRIGGER_SECRET_ID`
 - `RUNBOOK_URL`
 
 Terraform intentionally does not set `AWS_REGION`; Lambda provides it at runtime and `handler.py` reads it from the runtime environment.
+
+## Daily schedule
+
+Shared-services Terraform creates an EventBridge Scheduler schedule named `slug-cert-expiry-checker-daily` by default. It runs:
+
+```text
+cron(30 7 * * ? *)
+```
+
+with `schedule_expression_timezone = "Europe/London"`, so the Lambda runs at 07:30 UK local time across GMT and BST changes.
+
+The schedule invokes the Lambda once. It does not iterate certificates itself; the Lambda loads catalogues, checks actual PEM expiry from Secrets Manager, sends SNS notifications, and triggers Jenkins when a certificate is in the 15-30 day renewal window.
+
+## Jenkins trigger secret
+
+Terraform can create the Secrets Manager secret container `/slug/cert-lifecycle/jenkins-trigger`, but operators must set the value manually:
+
+```json
+{"username":"<jenkins-user>","api_token":"<jenkins-api-token>"}
+```
+
+The Lambda reads this secret only when it needs to trigger Jenkins. The Jenkins job URL remains a Terraform variable and credentials are not stored in Terraform.
 
 ## What Terraform does not manage
 
 - certificate private keys or PEM bodies
 - `/slug/certs/*` secret values
 - Bitbucket token value
+- Jenkins trigger credential value
 - catalogue YAML content
 - Vault PKI configuration
 - Jenkins job configuration
-- EventBridge schedules
 - SNS subscriptions
 - application restart or reload
 

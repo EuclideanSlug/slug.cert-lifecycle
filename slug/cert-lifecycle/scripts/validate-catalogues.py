@@ -7,7 +7,6 @@ Exit code:
   1 — one or more validation errors found
 """
 
-import os
 import re
 import sys
 from pathlib import Path
@@ -163,7 +162,7 @@ def main():
             print(f'ERROR: {err}', file=sys.stderr)
         print(
             f'\n{len(all_errors)} error(s) found across '
-            f'{len(paths)} catalogue file(s).',
+            f'{len(active_paths) + len(example_paths)} catalogue file(s).',
             file=sys.stderr,
         )
         sys.exit(1)

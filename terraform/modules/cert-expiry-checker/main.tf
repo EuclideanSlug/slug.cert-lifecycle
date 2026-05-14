@@ -8,6 +8,7 @@ locals {
     CERT_P1_ALERT_TOPIC_ARN   = var.cert_p1_alert_topic_arn
     JENKINS_JOB_NAME          = var.jenkins_job_name
     JENKINS_JOB_URL           = var.jenkins_job_url
+    JENKINS_TRIGGER_SECRET_ID = var.jenkins_trigger_secret_name
     RUNBOOK_URL               = var.runbook_url
   }
 }
@@ -51,6 +52,14 @@ data "aws_iam_policy_document" "lambda_exec_policy" {
     actions = ["secretsmanager:GetSecretValue"]
 
     resources = [var.bitbucket_token_secret_arn]
+  }
+
+  statement {
+    sid     = "ReadJenkinsTriggerSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+
+    resources = [var.jenkins_trigger_secret_arn]
   }
 
   statement {
@@ -146,4 +155,81 @@ resource "aws_lambda_function" "expiry_checker" {
   }
 
   tags = var.tags
+}
+
+# ── Daily EventBridge Scheduler trigger ───────────────────────────────────────
+
+data "aws_iam_policy_document" "scheduler_assume" {
+  statement {
+    sid    = "AllowSchedulerServiceToAssume"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "scheduler_invoke" {
+  name               = var.scheduler_role_name
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "scheduler_invoke" {
+  statement {
+    sid     = "InvokeExpiryChecker"
+    effect  = "Allow"
+    actions = ["lambda:InvokeFunction"]
+
+    resources = [aws_lambda_function.expiry_checker.arn]
+  }
+}
+
+resource "aws_iam_policy" "scheduler_invoke" {
+  name        = "${var.daily_schedule_name}-invoke-lambda"
+  description = "Allow EventBridge Scheduler to invoke the Slug certificate expiry checker Lambda."
+  policy      = data.aws_iam_policy_document.scheduler_invoke.json
+  tags        = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "scheduler_invoke" {
+  role       = aws_iam_role.scheduler_invoke.name
+  policy_arn = aws_iam_policy.scheduler_invoke.arn
+}
+
+resource "aws_scheduler_schedule" "daily_expiry_check" {
+  name                         = var.daily_schedule_name
+  description                  = "Daily Slug certificate expiry check and renewal trigger."
+  schedule_expression          = var.daily_schedule_expression
+  schedule_expression_timezone = var.daily_schedule_timezone
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.expiry_checker.arn
+    role_arn = aws_iam_role.scheduler_invoke.arn
+
+    input = jsonencode({
+      source        = "eventbridge-scheduler"
+      "detail-type" = "scheduled-certificate-expiry-check"
+    })
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.scheduler_invoke,
+  ]
+}
+
+resource "aws_lambda_permission" "allow_scheduler" {
+  statement_id  = "AllowExecutionFromEventBridgeScheduler"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.expiry_checker.function_name
+  principal     = "scheduler.amazonaws.com"
+  source_arn    = aws_scheduler_schedule.daily_expiry_check.arn
 }

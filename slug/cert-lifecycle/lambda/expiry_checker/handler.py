@@ -7,11 +7,12 @@ Manager, and routes SNS notifications based on days remaining.
 
 Threshold routing:
   days_left > 30          log only
-  15 <= days_left <= 30   publish to cert-renewal SNS
+  15 <= days_left <= 30   trigger Jenkins, publish to cert-renewal SNS
   days_left <= 14         publish to cert-p1-alerts SNS  (includes expired)
 
 Safe logging contract: this module never logs private_key, ca_chain, full_chain,
-SecretString payloads, Bitbucket tokens, or AWS temporary credentials.
+SecretString payloads, Bitbucket tokens, Jenkins tokens, or AWS temporary
+credentials.
 
 Packaging note: the 'cryptography' dependency includes native components and must
 be built in a Lambda-compatible environment (Amazon Linux 2 or AL2023) before
@@ -23,6 +24,9 @@ import datetime
 import json
 import logging
 import os
+import re
+from dataclasses import dataclass
+from urllib.parse import unquote, urlparse
 
 import boto3
 import requests
@@ -41,7 +45,20 @@ _CERT_RENEWAL_TOPIC_ARN = os.environ['CERT_RENEWAL_TOPIC_ARN']
 _CERT_P1_ALERT_TOPIC_ARN = os.environ['CERT_P1_ALERT_TOPIC_ARN']
 _JENKINS_JOB_NAME = os.environ['JENKINS_JOB_NAME']
 _JENKINS_JOB_URL = os.environ['JENKINS_JOB_URL']
+_JENKINS_TRIGGER_SECRET_ID = os.environ.get('JENKINS_TRIGGER_SECRET_ID', '')
 _RUNBOOK_URL = os.environ['RUNBOOK_URL']
+
+_CATALOGUE_FILE_RE = re.compile(
+    r'^(?P<product_team>[A-Za-z0-9]+)-(?P<environment>[A-Za-z0-9]+)-certs\.ya?ml$'
+)
+
+
+@dataclass(frozen=True)
+class CatalogueContext:
+    product_team: str | None
+    environment: str | None
+    url: str
+    filename: str
 
 
 # ── Lambda entry point ─────────────────────────────────────────────────────────
@@ -52,6 +69,9 @@ def handler(event, context):  # noqa: ARG001
         'ok': 0,
         'renewal_needed': 0,
         'p1_action_required': 0,
+        'jenkins_triggered': 0,
+        'jenkins_skipped': 0,
+        'jenkins_trigger_failed': 0,
         'errors': 0,
     }
 
@@ -79,12 +99,16 @@ def handler(event, context):  # noqa: ARG001
         logger.info(json.dumps({'summary': counters}))
         raise RuntimeError('No applications loaded from configured catalogue URLs')
 
-    for app in apps:
+    for app_record in apps:
         counters['checked'] += 1
+        app = app_record.get('app') if isinstance(app_record, dict) else None
         app_name = app.get('name', '<unknown>') if isinstance(app, dict) else '<invalid>'
         try:
-            result = _check_app(app, sts_client, sns_client)
-            counters[result] += 1
+            result = _check_app(app_record, sts_client, sns_client, sm_client)
+            counters[result['status']] += 1
+            jenkins_status = result.get('jenkins_status')
+            if jenkins_status:
+                counters[jenkins_status] += 1
         except Exception as exc:
             logger.error(
                 json.dumps({
@@ -109,17 +133,31 @@ def _get_bitbucket_token(sm_client) -> str:
 
 
 def _load_all_apps(token: str) -> tuple[list, int]:
-    """Fetch every catalogue URL and return (flat app list, catalogue error count)."""
+    """Fetch every catalogue URL and return (flat app record list, error count)."""
     apps = []
     errors = 0
     for raw_url in _BITBUCKET_CATALOGUE_URLS.split(','):
         url = raw_url.strip()
         if not url:
             continue
+        context = _catalogue_context_from_url(url)
+        if not context.product_team or not context.environment:
+            logger.warning(
+                json.dumps({
+                    'status': 'warning',
+                    'message': 'Could not derive Jenkins parameters from catalogue filename',
+                    'catalogue_filename': context.filename,
+                    'url': url,
+                })
+            )
         try:
             catalogue = _fetch_catalogue(url, token)
             if catalogue and isinstance(catalogue.get('apps'), list):
-                apps.extend(catalogue['apps'])
+                for app in catalogue['apps']:
+                    apps.append({
+                        'app': app,
+                        'catalogue': context,
+                    })
             else:
                 logger.warning(
                     json.dumps({
@@ -140,6 +178,26 @@ def _load_all_apps(token: str) -> tuple[list, int]:
             )
             errors += 1
     return apps, errors
+
+
+def _catalogue_context_from_url(url: str) -> CatalogueContext:
+    """Derive Jenkins PRODUCT_TEAM and ENVIRONMENT from a catalogue URL path."""
+    parsed = urlparse(url)
+    filename = unquote(os.path.basename(parsed.path))
+    match = _CATALOGUE_FILE_RE.fullmatch(filename)
+    if not match:
+        return CatalogueContext(
+            product_team=None,
+            environment=None,
+            url=url,
+            filename=filename,
+        )
+    return CatalogueContext(
+        product_team=match.group('product_team'),
+        environment=match.group('environment'),
+        url=url,
+        filename=filename,
+    )
 
 
 def _fetch_catalogue(url: str, token: str) -> dict:
@@ -207,12 +265,15 @@ def _days_left(expiry_epoch: int) -> tuple[int, datetime.datetime]:
     return (expiry_dt - now).days, expiry_dt
 
 
-def _check_app(app: dict, sts_client, sns_client) -> str:
+def _check_app(app_record: dict, sts_client, sns_client, sm_client) -> dict:
     """
     Run the full expiry check for one catalogue entry.
 
-    Returns a status string: 'ok', 'renewal_needed', or 'p1_action_required'.
+    Returns a routing result with status 'ok', 'renewal_needed', or
+    'p1_action_required', plus optional Jenkins trigger status.
     """
+    app = app_record['app']
+    catalogue = app_record['catalogue']
     app_name = app['name']
     account_id = app['deployment']['account_id']
     account_name = app['deployment']['account_name']
@@ -224,7 +285,16 @@ def _check_app(app: dict, sts_client, sns_client) -> str:
     expiry_epoch = _parse_pem_expiry_epoch(cert_pem)
     days, expiry_dt = _days_left(expiry_epoch)
 
-    return _route(app_name, account_id, account_name, days, expiry_dt, sns_client)
+    return _route(
+        app_name,
+        account_id,
+        account_name,
+        days,
+        expiry_dt,
+        sns_client,
+        sm_client,
+        catalogue,
+    )
 
 
 def _route(
@@ -234,7 +304,9 @@ def _route(
     days: int,
     expiry_dt: datetime.datetime,
     sns_client,
-) -> str:
+    sm_client,
+    catalogue: CatalogueContext,
+) -> dict:
     expiry_iso = expiry_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     if days > 30:
@@ -247,11 +319,22 @@ def _route(
                 'expiry_date': expiry_iso,
             })
         )
-        return 'ok'
+        return {'status': 'ok'}
 
     if 15 <= days <= 30:
+        jenkins_result = _trigger_jenkins_with_guardrails(
+            sm_client,
+            app_name,
+            catalogue,
+        )
         subject, body = _build_renewal_message(
-            app_name, account_id, account_name, days, expiry_iso
+            app_name,
+            account_id,
+            account_name,
+            days,
+            expiry_iso,
+            catalogue,
+            jenkins_result,
         )
         sns_client.publish(
             TopicArn=_CERT_RENEWAL_TOPIC_ARN,
@@ -265,13 +348,18 @@ def _route(
                 'account_name': account_name,
                 'days_left': days,
                 'expiry_date': expiry_iso,
+                'jenkins_status': jenkins_result['status'],
+                'jenkins_message': jenkins_result['message'],
             })
         )
-        return 'renewal_needed'
+        return {
+            'status': 'renewal_needed',
+            'jenkins_status': jenkins_result['status'],
+        }
 
     # days <= 14, including expired (negative days)
     subject, body = _build_p1_message(
-        app_name, account_id, account_name, days, expiry_iso
+        app_name, account_id, account_name, days, expiry_iso, catalogue
     )
     sns_client.publish(
         TopicArn=_CERT_P1_ALERT_TOPIC_ARN,
@@ -287,7 +375,286 @@ def _route(
             'expiry_date': expiry_iso,
         })
     )
-    return 'p1_action_required'
+    return {'status': 'p1_action_required'}
+
+
+def _trigger_jenkins_with_guardrails(
+    sm_client,
+    app_name: str,
+    catalogue: CatalogueContext,
+) -> dict:
+    """
+    Trigger the Jenkins issuance job unless a matching build is queued/running.
+
+    Failures are intentionally not persisted. If the certificate is still in the
+    renewal window tomorrow, the next scheduled Lambda run will retry.
+    """
+    if not catalogue.product_team or not catalogue.environment:
+        return {
+            'status': 'jenkins_trigger_failed',
+            'message': (
+                'missing PRODUCT_TEAM or ENVIRONMENT derived from catalogue '
+                f'filename {catalogue.filename}'
+            ),
+        }
+    if not _JENKINS_TRIGGER_SECRET_ID:
+        return {
+            'status': 'jenkins_trigger_failed',
+            'message': 'JENKINS_TRIGGER_SECRET_ID is not configured',
+        }
+
+    parameters = {
+        'PRODUCT_TEAM': catalogue.product_team,
+        'ENVIRONMENT': catalogue.environment,
+        'APP_NAME': app_name,
+    }
+
+    try:
+        session = _build_jenkins_session(sm_client)
+        job_url = _normalise_jenkins_job_url(_JENKINS_JOB_URL)
+        base_url = _jenkins_base_url(job_url)
+
+        inflight, reason = _jenkins_has_matching_inflight_build(
+            session,
+            base_url,
+            job_url,
+            parameters,
+        )
+        if inflight:
+            logger.info(
+                json.dumps({
+                    'status': 'jenkins_skipped',
+                    'app_name': app_name,
+                    'reason': reason,
+                    'product_team': catalogue.product_team,
+                    'environment': catalogue.environment,
+                })
+            )
+            return {
+                'status': 'jenkins_skipped',
+                'message': reason,
+            }
+
+        queued_url = _jenkins_build_with_parameters(
+            session,
+            base_url,
+            job_url,
+            parameters,
+        )
+        logger.info(
+            json.dumps({
+                'status': 'jenkins_triggered',
+                'app_name': app_name,
+                'product_team': catalogue.product_team,
+                'environment': catalogue.environment,
+                'queue_url': queued_url or '',
+            })
+        )
+        return {
+            'status': 'jenkins_triggered',
+            'message': queued_url or 'Jenkins accepted buildWithParameters request',
+        }
+    except Exception as exc:
+        logger.error(
+            json.dumps({
+                'status': 'jenkins_trigger_failed',
+                'app_name': app_name,
+                'product_team': catalogue.product_team,
+                'environment': catalogue.environment,
+                'error': str(exc),
+            })
+        )
+        return {
+            'status': 'jenkins_trigger_failed',
+            'message': str(exc),
+        }
+
+
+def _build_jenkins_session(sm_client) -> requests.Session:
+    """Build an authenticated Jenkins HTTP session from Secrets Manager."""
+    username, token = _get_jenkins_credentials(sm_client)
+    session = requests.Session()
+    session.auth = (username, token)
+    return session
+
+
+def _get_jenkins_credentials(sm_client) -> tuple[str, str]:
+    """
+    Retrieve Jenkins trigger credentials from Secrets Manager. Never logged.
+
+    Expected SecretString JSON:
+      {"username":"<jenkins-user>","api_token":"<jenkins-api-token>"}
+    The token key is also accepted as "token" for operator convenience.
+    """
+    response = sm_client.get_secret_value(SecretId=_JENKINS_TRIGGER_SECRET_ID)
+    payload = json.loads(response['SecretString'])
+    username = payload.get('username')
+    token = payload.get('api_token') or payload.get('token')
+    if not username or not token:
+        raise RuntimeError(
+            'Jenkins trigger secret must contain username and api_token'
+        )
+    return username, token
+
+
+def _normalise_jenkins_job_url(job_url: str) -> str:
+    parsed = urlparse(job_url)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        raise RuntimeError('JENKINS_JOB_URL must be an absolute HTTP(S) URL')
+    return job_url.rstrip('/')
+
+
+def _jenkins_base_url(job_url: str) -> str:
+    parsed = urlparse(job_url)
+    return f'{parsed.scheme}://{parsed.netloc}'
+
+
+def _jenkins_has_matching_inflight_build(
+    session: requests.Session,
+    base_url: str,
+    job_url: str,
+    parameters: dict,
+) -> tuple[bool, str | None]:
+    queue_match = _jenkins_queue_has_matching_item(
+        session,
+        base_url,
+        job_url,
+        parameters,
+    )
+    if queue_match:
+        return True, queue_match
+
+    running_match = _jenkins_job_has_matching_running_build(
+        session,
+        job_url,
+        parameters,
+    )
+    if running_match:
+        return True, running_match
+
+    return False, None
+
+
+def _jenkins_queue_has_matching_item(
+    session: requests.Session,
+    base_url: str,
+    job_url: str,
+    parameters: dict,
+) -> str | None:
+    response = session.get(
+        f'{base_url}/queue/api/json',
+        params={'tree': 'items[id,task[url],actions[parameters[name,value]]]'},
+        timeout=15,
+    )
+    response.raise_for_status()
+    job_url_normalised = job_url.rstrip('/') + '/'
+
+    for item in response.json().get('items', []):
+        task_url = (item.get('task') or {}).get('url', '')
+        if task_url.rstrip('/') + '/' != job_url_normalised:
+            continue
+        if _jenkins_parameters_match(item.get('actions', []), parameters):
+            return f'matching Jenkins queue item {item.get("id")}'
+
+    return None
+
+
+def _jenkins_job_has_matching_running_build(
+    session: requests.Session,
+    job_url: str,
+    parameters: dict,
+) -> str | None:
+    response = session.get(
+        f'{job_url}/api/json',
+        params={
+            'tree': (
+                'builds[number,url,building,actions[parameters[name,value]]]'
+            )
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+
+    for build in response.json().get('builds', [])[:20]:
+        if not build.get('building'):
+            continue
+        if _jenkins_parameters_match(build.get('actions', []), parameters):
+            return f'matching Jenkins running build {build.get("number")}'
+
+    return None
+
+
+def _jenkins_parameters_match(actions: list, expected: dict) -> bool:
+    actual = {}
+    for action in actions or []:
+        for parameter in action.get('parameters') or []:
+            name = parameter.get('name')
+            if name:
+                actual[name] = str(parameter.get('value', ''))
+
+    return all(actual.get(name) == str(value) for name, value in expected.items())
+
+
+def _jenkins_build_with_parameters(
+    session: requests.Session,
+    base_url: str,
+    job_url: str,
+    parameters: dict,
+) -> str | None:
+    headers = _jenkins_crumb_header(session, base_url)
+    response = session.post(
+        f'{job_url}/buildWithParameters',
+        data=parameters,
+        headers=headers,
+        timeout=15,
+        allow_redirects=False,
+    )
+    if response.status_code in (200, 201, 202):
+        return response.headers.get('Location')
+
+    if response.status_code in (302, 303):
+        location = response.headers.get('Location', '')
+        if _jenkins_redirect_is_expected(location, base_url, job_url):
+            return location
+        raise RuntimeError(
+            f'Jenkins trigger returned unexpected redirect to {location or "<empty>"}'
+        )
+
+    raise RuntimeError(
+        f'Jenkins trigger failed with HTTP {response.status_code}'
+    )
+
+
+def _jenkins_redirect_is_expected(location: str, base_url: str, job_url: str) -> bool:
+    if not location:
+        return False
+
+    parsed = urlparse(location)
+    if parsed.scheme or parsed.netloc:
+        normalised = location.rstrip('/') + '/'
+        base = base_url.rstrip('/') + '/'
+    else:
+        normalised = f'{base_url.rstrip("/")}/{location.lstrip("/")}'.rstrip('/') + '/'
+        base = base_url.rstrip('/') + '/'
+
+    job = re.escape(job_url.rstrip('/') + '/')
+    return (
+        normalised.startswith(f'{base}queue/item/')
+        or re.fullmatch(f'{job}[0-9]+/.*', normalised) is not None
+    )
+
+
+def _jenkins_crumb_header(session: requests.Session, base_url: str) -> dict:
+    response = session.get(f'{base_url}/crumbIssuer/api/json', timeout=15)
+    if response.status_code == 404:
+        return {}
+    response.raise_for_status()
+    payload = response.json()
+    field = payload.get('crumbRequestField')
+    crumb = payload.get('crumb')
+    if not field or not crumb:
+        return {}
+    return {field: crumb}
 
 
 def _build_renewal_message(
@@ -296,6 +663,8 @@ def _build_renewal_message(
     account_name: str,
     days_left: int,
     expiry_date: str,
+    catalogue: CatalogueContext,
+    jenkins_result: dict,
 ) -> tuple[str, str]:
     subject = f'[CERT RENEWAL NEEDED] {app_name} expires in {days_left} days'
     subject = subject[:100]
@@ -308,9 +677,15 @@ def _build_renewal_message(
         f'Days remaining:      {days_left}\n\n'
         f'Jenkins renewal job: {_JENKINS_JOB_NAME}\n'
         f'Jenkins job URL:     {_JENKINS_JOB_URL}\n'
+        f'PRODUCT_TEAM:        {catalogue.product_team or "unknown"}\n'
+        f'ENVIRONMENT:         {catalogue.environment or "unknown"}\n'
         f'APP_NAME parameter:  {app_name}\n\n'
+        f'Auto-trigger status: {jenkins_result["status"]}\n'
+        f'Auto-trigger detail: {jenkins_result["message"]}\n\n'
         f'Required action:\n'
-        f'Run the Jenkins certificate issuance job using the APP_NAME value above.\n\n'
+        f'Confirm the Jenkins job completes and the Secrets Manager secret is updated. '
+        f'If auto-trigger failed or was skipped unexpectedly, run the Jenkins '
+        f'certificate issuance job manually using the parameters above.\n\n'
         f'Runbook:\n'
         f'{_RUNBOOK_URL}\n'
     )
@@ -323,6 +698,7 @@ def _build_p1_message(
     account_name: str,
     days_left: int,
     expiry_date: str,
+    catalogue: CatalogueContext,
 ) -> tuple[str, str]:
     if days_left < 0:
         subject = (
@@ -342,6 +718,8 @@ def _build_p1_message(
         f'Days remaining:      {days_left}\n\n'
         f'Jenkins renewal job: {_JENKINS_JOB_NAME}\n'
         f'Jenkins job URL:     {_JENKINS_JOB_URL}\n'
+        f'PRODUCT_TEAM:        {catalogue.product_team or "unknown"}\n'
+        f'ENVIRONMENT:         {catalogue.environment or "unknown"}\n'
         f'APP_NAME parameter:  {app_name}\n\n'
         f'Required action:\n'
         f'1. Run the Jenkins certificate issuance job immediately.\n'

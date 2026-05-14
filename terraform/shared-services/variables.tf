@@ -53,6 +53,31 @@ variable "bitbucket_token_secret_arn" {
   }
 }
 
+# ── Jenkins trigger secret ────────────────────────────────────────────────────
+
+variable "create_jenkins_trigger_secret" {
+  description = "When true, create the Secrets Manager secret container for Jenkins trigger credentials. Set false if the secret already exists outside this Terraform state."
+  type        = bool
+  default     = true
+}
+
+variable "jenkins_trigger_secret_name" {
+  description = "Name/path of the Jenkins trigger credential secret in Secrets Manager."
+  type        = string
+  default     = "/slug/cert-lifecycle/jenkins-trigger"
+}
+
+variable "jenkins_trigger_secret_arn" {
+  description = "ARN of a pre-existing Jenkins trigger credential secret. Required when create_jenkins_trigger_secret is false."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.create_jenkins_trigger_secret || var.jenkins_trigger_secret_arn != null
+    error_message = "jenkins_trigger_secret_arn must be provided when create_jenkins_trigger_secret is false."
+  }
+}
+
 # ── Lambda packaging ──────────────────────────────────────────────────────────
 
 variable "lambda_package_path" {
@@ -154,6 +179,32 @@ variable "jenkins_job_url" {
 variable "runbook_url" {
   description = "Runbook URL. Included in alert notification bodies."
   type        = string
+}
+
+# ── EventBridge Scheduler ─────────────────────────────────────────────────────
+
+variable "daily_schedule_name" {
+  description = "Name of the EventBridge Scheduler schedule that invokes the expiry checker Lambda daily."
+  type        = string
+  default     = "slug-cert-expiry-checker-daily"
+}
+
+variable "daily_schedule_expression" {
+  description = "EventBridge Scheduler cron expression for the daily expiry checker run."
+  type        = string
+  default     = "cron(30 7 * * ? *)"
+}
+
+variable "daily_schedule_timezone" {
+  description = "IANA timezone used by EventBridge Scheduler for the daily run."
+  type        = string
+  default     = "Europe/London"
+}
+
+variable "scheduler_role_name" {
+  description = "Name of the IAM role assumed by EventBridge Scheduler to invoke the Lambda."
+  type        = string
+  default     = "slug-cert-expiry-checker-scheduler-role"
 }
 
 # ── Tagging ───────────────────────────────────────────────────────────────────

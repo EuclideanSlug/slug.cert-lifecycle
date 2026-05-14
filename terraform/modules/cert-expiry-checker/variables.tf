@@ -111,9 +111,43 @@ variable "jenkins_job_url" {
   type        = string
 }
 
+variable "jenkins_trigger_secret_arn" {
+  description = "ARN of the Secrets Manager secret containing Jenkins trigger credentials. Scoped in the Lambda IAM policy to this exact ARN."
+  type        = string
+}
+
+variable "jenkins_trigger_secret_name" {
+  description = "Name or path of the Jenkins trigger secret. Used as the JENKINS_TRIGGER_SECRET_ID Lambda environment variable."
+  type        = string
+}
+
 variable "runbook_url" {
   description = "Runbook URL. Included in Lambda alert notification bodies."
   type        = string
+}
+
+variable "daily_schedule_name" {
+  description = "Name of the EventBridge Scheduler schedule that invokes the expiry checker Lambda daily."
+  type        = string
+  default     = "slug-cert-expiry-checker-daily"
+}
+
+variable "daily_schedule_expression" {
+  description = "EventBridge Scheduler cron expression for the daily expiry checker run."
+  type        = string
+  default     = "cron(30 7 * * ? *)"
+}
+
+variable "daily_schedule_timezone" {
+  description = "IANA timezone used by EventBridge Scheduler for the daily run."
+  type        = string
+  default     = "Europe/London"
+}
+
+variable "scheduler_role_name" {
+  description = "Name of the IAM role assumed by EventBridge Scheduler to invoke the Lambda."
+  type        = string
+  default     = "slug-cert-expiry-checker-scheduler-role"
 }
 
 variable "tags" {

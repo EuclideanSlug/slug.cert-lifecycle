@@ -20,11 +20,14 @@ Apply shared services before spokes. Each spoke needs the `lambda_execution_role
 Shared services creates:
 
 - expiry checker Lambda
+- daily EventBridge Scheduler schedule at 07:30 `Europe/London`
 - Lambda execution role and IAM policy
+- EventBridge Scheduler invoke role and Lambda invoke permission
 - CloudWatch log group
 - `slug-cert-renewal` SNS topic
 - `slug-cert-p1-alerts` SNS topic
 - optional Bitbucket token secret container
+- optional Jenkins trigger credential secret container
 
 Shared-services applies are valid for:
 
@@ -54,12 +57,12 @@ The spoke root does not create or update live certificate secret values.
 4. Apply shared services.
 5. Record `lambda_execution_role_arn`.
 6. Insert the Bitbucket token value into Secrets Manager.
-7. Apply each spoke with the correct `lambda_execution_role_arn`.
-8. Create an EventBridge schedule for the Lambda.
+7. Insert the Jenkins trigger credential value into Secrets Manager.
+8. Apply each spoke with the correct `lambda_execution_role_arn`.
 9. Subscribe recipients to both SNS topics.
 10. Copy any required catalogue `.yml.example` templates to `.yml` and replace `deployment.account_id` placeholders.
 11. Run the catalogue validator.
-12. Run a non-prod single-app Jenkins issuance.
+12. Run a non-prod single-app Jenkins issuance manually.
 13. Confirm the secret version and Lambda log output.
 
 ## Preprod, dev, and test
@@ -113,13 +116,41 @@ aws secretsmanager put-secret-value \
   --region eu-west-2
 ```
 
+Terraform also does not insert the Jenkins trigger credential value:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id "/slug/cert-lifecycle/jenkins-trigger" \
+  --secret-string '{"username":"<jenkins-user>","api_token":"<jenkins-api-token>"}' \
+  --region eu-west-2
+```
+
 Terraform also does not manage:
 
-- EventBridge schedules
 - SNS subscriptions
 - Jenkins job configuration
 - Vault PKI configuration
 - live certificate secret values
+
+## Jenkins agent prerequisites
+
+Certificate issuance agents, labelled `preprod` or `prodc`, need:
+
+- Java for the Jenkins agent runtime
+- `git`
+- `python3` and `pip`
+- `ansible-playbook` and `ansible-galaxy`
+- Python packages: `boto3`, `botocore`, `hvac`
+- Ansible collections from `slug/cert-lifecycle/ansible/requirements.yml`: `community.hashi_vault >= 6.0.0` and `amazon.aws >= 7.0.0`
+- Jenkins plugins: Pipeline, Pipeline Utility Steps for `readYaml`, AWS Steps for `withAWS`, Workspace Cleanup for `cleanWs`, and the configured `slug-platform-lib` shared library
+
+Terraform agents also need `terraform`, AWS credentials for the target account, and backend access for `terraform init`.
+
+If Jenkins builds the Lambda package, the packaging agent also needs Docker access to run `public.ecr.aws/lambda/python:3.12`. The Lambda package must include the Python dependencies listed in `slug/cert-lifecycle/lambda/expiry_checker/requirements.txt`; `boto3` is provided by the Lambda runtime and is intentionally not packaged.
+
+## Validation
+
+Use `ruff check` as the lightweight Python static-analysis gate for this repository. Raw `pylint` is not configured for this project and may report Lambda-runtime imports such as `boto3` as local import errors.
 
 ## Lambda packaging
 

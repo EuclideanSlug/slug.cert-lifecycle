@@ -22,6 +22,13 @@ locals {
     ? aws_secretsmanager_secret.bitbucket_token[0].arn
     : var.bitbucket_token_secret_arn
   )
+
+  # Resolve which Jenkins trigger secret ARN the Lambda policy should reference.
+  jenkins_trigger_secret_arn = (
+    var.create_jenkins_trigger_secret
+    ? aws_secretsmanager_secret.jenkins_trigger[0].arn
+    : var.jenkins_trigger_secret_arn
+  )
 }
 
 # ── SNS topics ────────────────────────────────────────────────────────────────
@@ -45,6 +52,20 @@ resource "aws_secretsmanager_secret" "bitbucket_token" {
 
   name        = var.bitbucket_token_secret_name
   description = "Bitbucket API token for the Slug certificate expiry checker Lambda. Set the value manually — never via Terraform."
+  tags        = local.tags
+}
+
+# ── Jenkins trigger secret (metadata/container only) ─────────────────────────
+#
+# Creates the Secrets Manager secret shell so the Lambda IAM policy can
+# reference a fixed ARN. The username and API token value must be set manually
+# by the operator — never managed by Terraform.
+
+resource "aws_secretsmanager_secret" "jenkins_trigger" {
+  count = var.create_jenkins_trigger_secret ? 1 : 0
+
+  name        = var.jenkins_trigger_secret_name
+  description = "Jenkins username and API token for Slug certificate auto-renewal triggers. Set the value manually — never via Terraform."
   tags        = local.tags
 }
 
@@ -75,9 +96,16 @@ module "cert_expiry_checker" {
   cert_renewal_topic_arn  = module.sns.cert_renewal_topic_arn
   cert_p1_alert_topic_arn = module.sns.cert_p1_alert_topic_arn
 
-  jenkins_job_name = var.jenkins_job_name
-  jenkins_job_url  = var.jenkins_job_url
-  runbook_url      = var.runbook_url
+  jenkins_job_name            = var.jenkins_job_name
+  jenkins_job_url             = var.jenkins_job_url
+  jenkins_trigger_secret_arn  = local.jenkins_trigger_secret_arn
+  jenkins_trigger_secret_name = var.jenkins_trigger_secret_name
+  runbook_url                 = var.runbook_url
+
+  daily_schedule_name       = var.daily_schedule_name
+  daily_schedule_expression = var.daily_schedule_expression
+  daily_schedule_timezone   = var.daily_schedule_timezone
+  scheduler_role_name       = var.scheduler_role_name
 
   tags = local.tags
 }
