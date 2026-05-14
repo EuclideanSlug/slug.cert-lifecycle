@@ -111,7 +111,6 @@ variable "jenkins_job_url" {
   type        = string
 }
 
-<<<<<<< HEAD
 variable "jenkins_trigger_secret_arn" {
   description = "ARN of the Secrets Manager secret containing Jenkins trigger credentials. Scoped in the Lambda IAM policy to this exact ARN."
   type        = string
@@ -122,14 +121,11 @@ variable "jenkins_trigger_secret_name" {
   type        = string
 }
 
-=======
->>>>>>> origin/main
 variable "runbook_url" {
   description = "Runbook URL. Included in Lambda alert notification bodies."
   type        = string
 }
 
-<<<<<<< HEAD
 variable "daily_schedule_name" {
   description = "Name of the EventBridge Scheduler schedule that invokes the expiry checker Lambda daily."
   type        = string
@@ -154,8 +150,6 @@ variable "scheduler_role_name" {
   default     = "slug-cert-expiry-checker-scheduler-role"
 }
 
-=======
->>>>>>> origin/main
 variable "tags" {
   description = "Tags to apply to all resources in this module."
   type        = map(string)

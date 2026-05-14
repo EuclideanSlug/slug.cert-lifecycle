@@ -25,7 +25,6 @@ create_bitbucket_token_secret = true
 bitbucket_token_secret_name   = "/slug/cert-lifecycle/bitbucket-token"
 # bitbucket_token_secret_arn  = "arn:aws:secretsmanager:eu-west-2:<preprod-shared-account-id>:secret:/slug/cert-lifecycle/bitbucket-token-XXXXXX"
 
-<<<<<<< HEAD
 # ── Jenkins trigger secret ────────────────────────────────────────────────────
 # Set create_jenkins_trigger_secret = false and provide jenkins_trigger_secret_arn
 # if the secret already exists outside this Terraform state.
@@ -35,8 +34,6 @@ create_jenkins_trigger_secret = true
 jenkins_trigger_secret_name   = "/slug/cert-lifecycle/jenkins-trigger"
 # jenkins_trigger_secret_arn  = "arn:aws:secretsmanager:eu-west-2:<preprod-shared-account-id>:secret:/slug/cert-lifecycle/jenkins-trigger-XXXXXX"
 
-=======
->>>>>>> origin/main
 # ── Lambda packaging ──────────────────────────────────────────────────────────
 # Supply exactly one of lambda_package_path (local build) or lambda_s3_bucket + lambda_s3_key.
 
@@ -92,7 +89,6 @@ jenkins_job_name = "slug-cert-lifecycle/issue-certificate"
 jenkins_job_url  = "https://jenkins.example.com/job/slug-cert-lifecycle/job/issue-certificate"
 runbook_url      = "https://confluence.example.com/display/Slug/cert-lifecycle-runbook"
 
-<<<<<<< HEAD
 # ── EventBridge Scheduler ─────────────────────────────────────────────────────
 
 daily_schedule_name       = "slug-cert-expiry-checker-daily"
@@ -100,8 +96,6 @@ daily_schedule_expression = "cron(30 7 * * ? *)"
 daily_schedule_timezone   = "Europe/London"
 scheduler_role_name       = "slug-cert-expiry-checker-scheduler-role"
 
-=======
->>>>>>> origin/main
 # ── Tagging ───────────────────────────────────────────────────────────────────
 
 tags = {

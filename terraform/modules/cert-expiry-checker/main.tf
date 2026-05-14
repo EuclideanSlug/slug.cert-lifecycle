@@ -8,10 +8,7 @@ locals {
     CERT_P1_ALERT_TOPIC_ARN   = var.cert_p1_alert_topic_arn
     JENKINS_JOB_NAME          = var.jenkins_job_name
     JENKINS_JOB_URL           = var.jenkins_job_url
-<<<<<<< HEAD
     JENKINS_TRIGGER_SECRET_ID = var.jenkins_trigger_secret_name
-=======
->>>>>>> origin/main
     RUNBOOK_URL               = var.runbook_url
   }
 }
@@ -58,7 +55,6 @@ data "aws_iam_policy_document" "lambda_exec_policy" {
   }
 
   statement {
-<<<<<<< HEAD
     sid     = "ReadJenkinsTriggerSecret"
     effect  = "Allow"
     actions = ["secretsmanager:GetSecretValue"]
@@ -67,8 +63,6 @@ data "aws_iam_policy_document" "lambda_exec_policy" {
   }
 
   statement {
-=======
->>>>>>> origin/main
     sid     = "AssumeSpokeCertLifecycleRoles"
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
@@ -162,7 +156,6 @@ resource "aws_lambda_function" "expiry_checker" {
 
   tags = var.tags
 }
-<<<<<<< HEAD
 
 # ── Daily EventBridge Scheduler trigger ───────────────────────────────────────
 
@@ -240,5 +233,3 @@ resource "aws_lambda_permission" "allow_scheduler" {
   principal     = "scheduler.amazonaws.com"
   source_arn    = aws_scheduler_schedule.daily_expiry_check.arn
 }
-=======
->>>>>>> origin/main

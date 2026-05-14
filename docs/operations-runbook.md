@@ -6,7 +6,6 @@ Use this runbook to issue or renew certificates, respond to SNS alerts, verify S
 
 | Alert | Meaning | Action |
 | --- | --- | --- |
-<<<<<<< HEAD
 | `[CERT RENEWAL NEEDED]` | 15-30 days remaining | confirm the auto-triggered Jenkins renewal completes, or run Jenkins manually if the trigger failed or was skipped unexpectedly |
 | `[CERT P1 - ACTION REQUIRED] ... expires in N days` | 1-14 days remaining | renew today |
 | `[CERT P1 - ACTION REQUIRED] ... expired N days ago` | expired | renew immediately and escalate if blocked |
@@ -33,16 +32,6 @@ Failed Jenkins trigger attempts are not durably suppressed. If the certificate s
 
 Manual Jenkins execution remains supported for initial certificate creation, manual renewal, and break-glass use.
 
-=======
-| `[CERT RENEWAL NEEDED]` | 15-30 days remaining | renew within the current working week |
-| `[CERT P1 - ACTION REQUIRED] ... expires in N days` | 1-14 days remaining | renew today |
-| `[CERT P1 - ACTION REQUIRED] ... expired N days ago` | expired | renew immediately and escalate if blocked |
-
-The alert body includes the application name, account, expiry date, Jenkins job details, and `APP_NAME` value.
-
-## Issue or renew one certificate
-
->>>>>>> origin/main
 1. Open the Jenkins certificate issuance job.
 2. Select:
 
@@ -96,11 +85,7 @@ print(cert.not_valid_after_utc.isoformat())
 
 ## Application reloads
 
-<<<<<<< HEAD
 Certificate renewal updates Secrets Manager only. It does not restart applications.
-=======
-Phase 1 updates Secrets Manager only. It does not restart applications.
->>>>>>> origin/main
 
 After renewal, tell the application owner:
 
@@ -146,7 +131,6 @@ Healthy app log:
 Run summary:
 
 ```json
-<<<<<<< HEAD
 {"summary": {"checked": 4, "ok": 2, "renewal_needed": 1, "p1_action_required": 0, "jenkins_triggered": 1, "jenkins_skipped": 0, "jenkins_trigger_failed": 0, "errors": 1}}
 ```
 
@@ -167,12 +151,6 @@ Expected secret value:
 ```
 
 The Jenkins identity should have permission to read the job state, inspect queue/running builds, and trigger the certificate issuance job with parameters. Do not put this credential in Terraform variables, Jenkinsfiles, shell history, or tickets.
-=======
-{"summary": {"checked": 4, "ok": 2, "renewal_needed": 1, "p1_action_required": 0, "errors": 1}}
-```
-
-The Lambda must not log PEM bodies, private keys, Bitbucket tokens, AWS credentials, or full `SecretString` values.
->>>>>>> origin/main
 
 ## Roll back a bad certificate
 
@@ -216,11 +194,8 @@ Only roll back when the newly issued certificate is wrong. The previous version 
 | Lambda Bitbucket 401 | Token missing, expired, or wrong secret format | Update `/slug/cert-lifecycle/bitbucket-token` with `{"token":"..."}` |
 | Lambda invocation fails with no apps loaded | All configured catalogue URLs failed or returned no `apps` list | Check `BITBUCKET_CATALOGUE_URLS`, token access, and catalogue file paths |
 | SNS publish failure | Wrong topic ARN or missing Lambda permission | Check Lambda env vars and execution-role policy |
-<<<<<<< HEAD
 | Jenkins trigger failed | Jenkins credential missing/expired, job URL wrong, network blocked, CSRF crumb failure, or Jenkins rejected the build | Check `/slug/cert-lifecycle/jenkins-trigger`, `JENKINS_JOB_URL`, Lambda logs, and Jenkins access logs; the next daily run retries if still in the renewal window |
 | Jenkins trigger skipped | Matching queued or running build already exists | Confirm the existing Jenkins build completes and updates the secret |
-=======
->>>>>>> origin/main
 | Invalid PEM | Secret payload is corrupt or not a PEM certificate | Re-issue the certificate |
 
 ## Security
@@ -240,10 +215,7 @@ Never share:
 - full `SecretString` payloads
 - Vault tokens
 - Bitbucket tokens
-<<<<<<< HEAD
 - Jenkins usernames or tokens
-=======
->>>>>>> origin/main
 - AWS temporary credentials
 
 If secret material appears in logs, treat it as a security incident.

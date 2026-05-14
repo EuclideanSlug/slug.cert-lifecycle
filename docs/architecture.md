@@ -17,19 +17,13 @@ Jenkinsfile -> issueCertificate(app) -> Ansible -> Vault PKI
                                       /slug/certs/{app.name}
 
 Shared-services Lambda
-<<<<<<< HEAD
   invoked daily by EventBridge Scheduler at 07:30 Europe/London
-=======
->>>>>>> origin/main
   reads catalogue URLs from Bitbucket
   assumes CertLifecycleRole in spoke accounts
   reads /slug/certs/{app.name}
   parses PEM expiry with cryptography
   publishes SNS alerts
-<<<<<<< HEAD
   triggers Jenkins renewal for 15-30 day certificates
-=======
->>>>>>> origin/main
 ```
 
 ## Source of truth
@@ -65,7 +59,6 @@ Existing Secrets Manager secrets are updated with a new version. They are not de
 
 ## Expiry monitoring flow
 
-<<<<<<< HEAD
 1. EventBridge Scheduler invokes the Lambda once per day at 07:30 `Europe/London`.
 2. The Lambda runs in a shared-services account.
 3. It reads a Bitbucket token from Secrets Manager.
@@ -74,42 +67,22 @@ Existing Secrets Manager secrets are updated with a new version. They are not de
 6. It reads `/slug/certs/{app.name}` and extracts only the `certificate` field.
 7. It parses expiry from the actual PEM certificate using Python `cryptography`.
 8. It routes by days remaining:
-=======
-1. The Lambda runs in a shared-services account.
-2. It reads a Bitbucket token from Secrets Manager.
-3. It fetches the configured raw catalogue URLs.
-4. For each app, it assumes `CertLifecycleRole` in the target spoke account.
-5. It reads `/slug/certs/{app.name}` and extracts only the `certificate` field.
-6. It parses expiry from the actual PEM certificate using Python `cryptography`.
-7. It routes by days remaining:
->>>>>>> origin/main
 
 | Days remaining | Action |
 | --- | --- |
 | `> 30` | log only |
-<<<<<<< HEAD
 | `15..30` | trigger Jenkins renewal with `PRODUCT_TEAM`, `ENVIRONMENT`, and `APP_NAME`, then publish to `slug-cert-renewal` |
-=======
-| `15..30` | publish to `slug-cert-renewal` |
->>>>>>> origin/main
 | `<= 14` | publish to `slug-cert-p1-alerts` |
 
 `expiry_epoch` is stored for reference only. Alerting is based on the PEM certificate.
 
-<<<<<<< HEAD
 Before triggering Jenkins, the Lambda has already checked the current PEM expiry from Secrets Manager. It also checks Jenkins queue and currently running builds for the same `PRODUCT_TEAM`, `ENVIRONMENT`, and `APP_NAME`; if one is already in flight, it skips the duplicate trigger and records that decision in logs and the renewal notification. Failed Jenkins trigger attempts are not stored as durable state, so the next daily run retries if the certificate is still in the renewal window.
 
-=======
->>>>>>> origin/main
 ## AWS accounts
 
 | Account type | Purpose |
 | --- | --- |
-<<<<<<< HEAD
 | Shared services | Lambda, Lambda execution role, EventBridge Scheduler schedule and scheduler invoke role, SNS topics, CloudWatch log group, Bitbucket token secret container, Jenkins trigger secret container |
-=======
-| Shared services | Lambda, Lambda execution role, SNS topics, CloudWatch log group, Bitbucket token secret container |
->>>>>>> origin/main
 | Spoke | `CertLifecycleRole`, optional jagent issuer permissions, certificate secrets consumed by applications |
 
 Preprod shared services can monitor preprod, dev, and test spokes if those spoke account IDs are included in `spoke_account_ids`. Prod shared services runs in `prodc` and monitors prod spokes.
@@ -120,18 +93,13 @@ Preprod shared services can monitor preprod, dev, and test spokes if those spoke
 | --- | --- | --- | --- |
 | `jagent-ec2-role` | Spoke | Jenkins issuance | create/update/tag `/slug/certs/*` |
 | `CertLifecycleRole` | Spoke | Lambda expiry checker | read `/slug/certs/*` |
-<<<<<<< HEAD
 | `slug-cert-expiry-checker-role` | Shared services | Lambda runtime | read Bitbucket token and Jenkins trigger secret, assume spoke roles, publish SNS, write logs |
 | `slug-cert-expiry-checker-scheduler-role` | Shared services | EventBridge Scheduler | invoke expiry checker Lambda |
-=======
-| `slug-cert-expiry-checker-role` | Shared services | Lambda runtime | read Bitbucket token, assume spoke roles, publish SNS, write logs |
->>>>>>> origin/main
 
 Optional KMS permissions are required when certificate secrets use customer-managed keys.
 
 ## Out of scope
 
-<<<<<<< HEAD
 The certificate lifecycle system does not:
 
 - restart or reload applications
@@ -139,14 +107,4 @@ The certificate lifecycle system does not:
 - inspect live endpoints
 - convert certificate formats
 - provide durable renewal deduplication across Lambda invocations
-=======
-Phase 1 does not:
-
-- restart or reload applications
-- prove the running app has loaded a renewed certificate
-- trigger Jenkins automatically from an alert
-- inspect live endpoints
-- convert certificate formats
-- deduplicate repeated alerts
->>>>>>> origin/main
 - manage certificate secret values in Terraform

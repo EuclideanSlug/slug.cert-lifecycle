@@ -54,11 +54,7 @@ pipeline {
         booleanParam(
             name: 'AUTO_APPROVE',
             defaultValue: false,
-<<<<<<< HEAD
             description: 'When true, skip the manual confirmation step before apply. Destroy always requires manual confirmation.'
-=======
-            description: 'When true, skip the manual confirmation step before apply/destroy. Requires deliberate operator intent.'
->>>>>>> origin/main
         )
     }
 

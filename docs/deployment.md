@@ -20,21 +20,14 @@ Apply shared services before spokes. Each spoke needs the `lambda_execution_role
 Shared services creates:
 
 - expiry checker Lambda
-<<<<<<< HEAD
 - daily EventBridge Scheduler schedule at 07:30 `Europe/London`
 - Lambda execution role and IAM policy
 - EventBridge Scheduler invoke role and Lambda invoke permission
-=======
-- Lambda execution role and IAM policy
->>>>>>> origin/main
 - CloudWatch log group
 - `slug-cert-renewal` SNS topic
 - `slug-cert-p1-alerts` SNS topic
 - optional Bitbucket token secret container
-<<<<<<< HEAD
 - optional Jenkins trigger credential secret container
-=======
->>>>>>> origin/main
 
 Shared-services applies are valid for:
 
@@ -64,21 +57,12 @@ The spoke root does not create or update live certificate secret values.
 4. Apply shared services.
 5. Record `lambda_execution_role_arn`.
 6. Insert the Bitbucket token value into Secrets Manager.
-<<<<<<< HEAD
 7. Insert the Jenkins trigger credential value into Secrets Manager.
 8. Apply each spoke with the correct `lambda_execution_role_arn`.
 9. Subscribe recipients to both SNS topics.
 10. Copy any required catalogue `.yml.example` templates to `.yml` and replace `deployment.account_id` placeholders.
 11. Run the catalogue validator.
 12. Run a non-prod single-app Jenkins issuance manually.
-=======
-7. Apply each spoke with the correct `lambda_execution_role_arn`.
-8. Create an EventBridge schedule for the Lambda.
-9. Subscribe recipients to both SNS topics.
-10. Copy any required catalogue `.yml.example` templates to `.yml` and replace `deployment.account_id` placeholders.
-11. Run the catalogue validator.
-12. Run a non-prod single-app Jenkins issuance.
->>>>>>> origin/main
 13. Confirm the secret version and Lambda log output.
 
 ## Preprod, dev, and test
@@ -132,7 +116,6 @@ aws secretsmanager put-secret-value \
   --region eu-west-2
 ```
 
-<<<<<<< HEAD
 Terraform also does not insert the Jenkins trigger credential value:
 
 ```bash
@@ -144,17 +127,11 @@ aws secretsmanager put-secret-value \
 
 Terraform also does not manage:
 
-=======
-Terraform also does not manage:
-
-- EventBridge schedules
->>>>>>> origin/main
 - SNS subscriptions
 - Jenkins job configuration
 - Vault PKI configuration
 - live certificate secret values
 
-<<<<<<< HEAD
 ## Jenkins agent prerequisites
 
 Certificate issuance agents, labelled `preprod` or `prodc`, need:
@@ -175,8 +152,6 @@ If Jenkins builds the Lambda package, the packaging agent also needs Docker acce
 
 Use `ruff check` as the lightweight Python static-analysis gate for this repository. Raw `pylint` is not configured for this project and may report Lambda-runtime imports such as `boto3` as local import errors.
 
-=======
->>>>>>> origin/main
 ## Lambda packaging
 
 `cryptography` contains native components. Build in a Lambda-compatible environment, for example:

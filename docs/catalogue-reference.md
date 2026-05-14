@@ -31,13 +31,8 @@ Each file has a top-level `apps` list. Each app must include:
 | `deployment.type` | `ec2` or `ecs`. |
 | `deployment.account_id` | 12-digit AWS spoke account ID as a quoted string. |
 | `deployment.account_name` | Account suffix, for example `devc`, `preprodc`, `prodc`. |
-<<<<<<< HEAD
 | `activation` | Future activation metadata. Present but not currently acted on. |
 | `maintenance_window` | Future maintenance metadata. Present but not currently acted on. |
-=======
-| `activation` | Future activation metadata. Present but not acted on in Phase 1. |
-| `maintenance_window` | Future maintenance metadata. Present but not acted on in Phase 1. |
->>>>>>> origin/main
 
 ECS apps must also include:
 

@@ -13,10 +13,7 @@ The repository contains:
 - a Jenkins shared-library step in `slug-platform-lib/vars/issueCertificate.groovy`
 - an Ansible role that issues certificates from Vault and writes them to AWS Secrets Manager
 - an expiry checker Lambda under `slug/cert-lifecycle/lambda/expiry_checker/`
-<<<<<<< HEAD
 - a daily EventBridge Scheduler trigger for the expiry checker Lambda
-=======
->>>>>>> origin/main
 - Terraform for shared-services and spoke-account infrastructure under `terraform/`
 
 ## Start here
@@ -34,7 +31,6 @@ The repository contains:
 2. Jenkins reads the catalogue and calls `issueCertificate(app)`.
 3. The shared-library step assumes `jagent-ec2-role` in the spoke account.
 4. Ansible issues a PEM certificate from Vault and writes `/slug/certs/{app.name}` in Secrets Manager.
-<<<<<<< HEAD
 5. EventBridge Scheduler invokes a shared-services Lambda daily at 07:30 UK time.
 6. The Lambda reads catalogues from Bitbucket, assumes `CertLifecycleRole` in each spoke account, parses actual PEM certificate expiry, publishes SNS alerts, and triggers Jenkins renewal for certificates with 15-30 days remaining.
 
@@ -45,18 +41,6 @@ The repository contains:
 - convert certificates to JKS, KDB, or PKCS12
 - manage certificate secret values in Terraform
 - create SNS subscriptions in Terraform
-=======
-5. A shared-services Lambda reads catalogues from Bitbucket, assumes `CertLifecycleRole` in each spoke account, parses actual PEM certificate expiry, and publishes SNS alerts.
-
-## What Phase 1 does not do
-
-- restart or reload applications
-- trigger Jenkins automatically from Lambda
-- check live application endpoints
-- convert certificates to JKS, KDB, or PKCS12
-- manage certificate secret values in Terraform
-- create EventBridge schedules or SNS subscriptions in Terraform
->>>>>>> origin/main
 
 ## Common commands
 

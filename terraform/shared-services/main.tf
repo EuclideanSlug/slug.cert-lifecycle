@@ -22,7 +22,6 @@ locals {
     ? aws_secretsmanager_secret.bitbucket_token[0].arn
     : var.bitbucket_token_secret_arn
   )
-<<<<<<< HEAD
 
   # Resolve which Jenkins trigger secret ARN the Lambda policy should reference.
   jenkins_trigger_secret_arn = (
@@ -30,8 +29,6 @@ locals {
     ? aws_secretsmanager_secret.jenkins_trigger[0].arn
     : var.jenkins_trigger_secret_arn
   )
-=======
->>>>>>> origin/main
 }
 
 # ── SNS topics ────────────────────────────────────────────────────────────────
@@ -58,7 +55,6 @@ resource "aws_secretsmanager_secret" "bitbucket_token" {
   tags        = local.tags
 }
 
-<<<<<<< HEAD
 # ── Jenkins trigger secret (metadata/container only) ─────────────────────────
 #
 # Creates the Secrets Manager secret shell so the Lambda IAM policy can
@@ -73,8 +69,6 @@ resource "aws_secretsmanager_secret" "jenkins_trigger" {
   tags        = local.tags
 }
 
-=======
->>>>>>> origin/main
 # ── Lambda expiry checker ─────────────────────────────────────────────────────
 
 module "cert_expiry_checker" {
@@ -102,7 +96,6 @@ module "cert_expiry_checker" {
   cert_renewal_topic_arn  = module.sns.cert_renewal_topic_arn
   cert_p1_alert_topic_arn = module.sns.cert_p1_alert_topic_arn
 
-<<<<<<< HEAD
   jenkins_job_name            = var.jenkins_job_name
   jenkins_job_url             = var.jenkins_job_url
   jenkins_trigger_secret_arn  = local.jenkins_trigger_secret_arn
@@ -113,11 +106,6 @@ module "cert_expiry_checker" {
   daily_schedule_expression = var.daily_schedule_expression
   daily_schedule_timezone   = var.daily_schedule_timezone
   scheduler_role_name       = var.scheduler_role_name
-=======
-  jenkins_job_name = var.jenkins_job_name
-  jenkins_job_url  = var.jenkins_job_url
-  runbook_url      = var.runbook_url
->>>>>>> origin/main
 
   tags = local.tags
 }

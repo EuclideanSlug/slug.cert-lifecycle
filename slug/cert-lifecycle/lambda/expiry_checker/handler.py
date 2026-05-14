@@ -7,20 +7,12 @@ Manager, and routes SNS notifications based on days remaining.
 
 Threshold routing:
   days_left > 30          log only
-<<<<<<< HEAD
   15 <= days_left <= 30   trigger Jenkins, publish to cert-renewal SNS
   days_left <= 14         publish to cert-p1-alerts SNS  (includes expired)
 
 Safe logging contract: this module never logs private_key, ca_chain, full_chain,
 SecretString payloads, Bitbucket tokens, Jenkins tokens, or AWS temporary
 credentials.
-=======
-  15 <= days_left <= 30   publish to cert-renewal SNS
-  days_left <= 14         publish to cert-p1-alerts SNS  (includes expired)
-
-Safe logging contract: this module never logs private_key, ca_chain, full_chain,
-SecretString payloads, Bitbucket tokens, or AWS temporary credentials.
->>>>>>> origin/main
 
 Packaging note: the 'cryptography' dependency includes native components and must
 be built in a Lambda-compatible environment (Amazon Linux 2 or AL2023) before
@@ -32,12 +24,9 @@ import datetime
 import json
 import logging
 import os
-<<<<<<< HEAD
 import re
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
-=======
->>>>>>> origin/main
 
 import boto3
 import requests
@@ -56,7 +45,6 @@ _CERT_RENEWAL_TOPIC_ARN = os.environ['CERT_RENEWAL_TOPIC_ARN']
 _CERT_P1_ALERT_TOPIC_ARN = os.environ['CERT_P1_ALERT_TOPIC_ARN']
 _JENKINS_JOB_NAME = os.environ['JENKINS_JOB_NAME']
 _JENKINS_JOB_URL = os.environ['JENKINS_JOB_URL']
-<<<<<<< HEAD
 _JENKINS_TRIGGER_SECRET_ID = os.environ.get('JENKINS_TRIGGER_SECRET_ID', '')
 _RUNBOOK_URL = os.environ['RUNBOOK_URL']
 
@@ -72,10 +60,6 @@ class CatalogueContext:
     url: str
     filename: str
 
-=======
-_RUNBOOK_URL = os.environ['RUNBOOK_URL']
-
->>>>>>> origin/main
 
 # ── Lambda entry point ─────────────────────────────────────────────────────────
 
@@ -85,12 +69,9 @@ def handler(event, context):  # noqa: ARG001
         'ok': 0,
         'renewal_needed': 0,
         'p1_action_required': 0,
-<<<<<<< HEAD
         'jenkins_triggered': 0,
         'jenkins_skipped': 0,
         'jenkins_trigger_failed': 0,
-=======
->>>>>>> origin/main
         'errors': 0,
     }
 
@@ -118,7 +99,6 @@ def handler(event, context):  # noqa: ARG001
         logger.info(json.dumps({'summary': counters}))
         raise RuntimeError('No applications loaded from configured catalogue URLs')
 
-<<<<<<< HEAD
     for app_record in apps:
         counters['checked'] += 1
         app = app_record.get('app') if isinstance(app_record, dict) else None
@@ -129,14 +109,6 @@ def handler(event, context):  # noqa: ARG001
             jenkins_status = result.get('jenkins_status')
             if jenkins_status:
                 counters[jenkins_status] += 1
-=======
-    for app in apps:
-        counters['checked'] += 1
-        app_name = app.get('name', '<unknown>') if isinstance(app, dict) else '<invalid>'
-        try:
-            result = _check_app(app, sts_client, sns_client)
-            counters[result] += 1
->>>>>>> origin/main
         except Exception as exc:
             logger.error(
                 json.dumps({
@@ -161,18 +133,13 @@ def _get_bitbucket_token(sm_client) -> str:
 
 
 def _load_all_apps(token: str) -> tuple[list, int]:
-<<<<<<< HEAD
     """Fetch every catalogue URL and return (flat app record list, error count)."""
-=======
-    """Fetch every catalogue URL and return (flat app list, catalogue error count)."""
->>>>>>> origin/main
     apps = []
     errors = 0
     for raw_url in _BITBUCKET_CATALOGUE_URLS.split(','):
         url = raw_url.strip()
         if not url:
             continue
-<<<<<<< HEAD
         context = _catalogue_context_from_url(url)
         if not context.product_team or not context.environment:
             logger.warning(
@@ -191,12 +158,6 @@ def _load_all_apps(token: str) -> tuple[list, int]:
                         'app': app,
                         'catalogue': context,
                     })
-=======
-        try:
-            catalogue = _fetch_catalogue(url, token)
-            if catalogue and isinstance(catalogue.get('apps'), list):
-                apps.extend(catalogue['apps'])
->>>>>>> origin/main
             else:
                 logger.warning(
                     json.dumps({
@@ -219,7 +180,6 @@ def _load_all_apps(token: str) -> tuple[list, int]:
     return apps, errors
 
 
-<<<<<<< HEAD
 def _catalogue_context_from_url(url: str) -> CatalogueContext:
     """Derive Jenkins PRODUCT_TEAM and ENVIRONMENT from a catalogue URL path."""
     parsed = urlparse(url)
@@ -240,8 +200,6 @@ def _catalogue_context_from_url(url: str) -> CatalogueContext:
     )
 
 
-=======
->>>>>>> origin/main
 def _fetch_catalogue(url: str, token: str) -> dict:
     """HTTP GET a raw Bitbucket catalogue URL with Bearer auth."""
     response = requests.get(
@@ -307,7 +265,6 @@ def _days_left(expiry_epoch: int) -> tuple[int, datetime.datetime]:
     return (expiry_dt - now).days, expiry_dt
 
 
-<<<<<<< HEAD
 def _check_app(app_record: dict, sts_client, sns_client, sm_client) -> dict:
     """
     Run the full expiry check for one catalogue entry.
@@ -317,14 +274,6 @@ def _check_app(app_record: dict, sts_client, sns_client, sm_client) -> dict:
     """
     app = app_record['app']
     catalogue = app_record['catalogue']
-=======
-def _check_app(app: dict, sts_client, sns_client) -> str:
-    """
-    Run the full expiry check for one catalogue entry.
-
-    Returns a status string: 'ok', 'renewal_needed', or 'p1_action_required'.
-    """
->>>>>>> origin/main
     app_name = app['name']
     account_id = app['deployment']['account_id']
     account_name = app['deployment']['account_name']
@@ -336,7 +285,6 @@ def _check_app(app: dict, sts_client, sns_client) -> str:
     expiry_epoch = _parse_pem_expiry_epoch(cert_pem)
     days, expiry_dt = _days_left(expiry_epoch)
 
-<<<<<<< HEAD
     return _route(
         app_name,
         account_id,
@@ -347,9 +295,6 @@ def _check_app(app: dict, sts_client, sns_client) -> str:
         sm_client,
         catalogue,
     )
-=======
-    return _route(app_name, account_id, account_name, days, expiry_dt, sns_client)
->>>>>>> origin/main
 
 
 def _route(
@@ -359,13 +304,9 @@ def _route(
     days: int,
     expiry_dt: datetime.datetime,
     sns_client,
-<<<<<<< HEAD
     sm_client,
     catalogue: CatalogueContext,
 ) -> dict:
-=======
-) -> str:
->>>>>>> origin/main
     expiry_iso = expiry_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     if days > 30:
@@ -378,7 +319,6 @@ def _route(
                 'expiry_date': expiry_iso,
             })
         )
-<<<<<<< HEAD
         return {'status': 'ok'}
 
     if 15 <= days <= 30:
@@ -395,13 +335,6 @@ def _route(
             expiry_iso,
             catalogue,
             jenkins_result,
-=======
-        return 'ok'
-
-    if 15 <= days <= 30:
-        subject, body = _build_renewal_message(
-            app_name, account_id, account_name, days, expiry_iso
->>>>>>> origin/main
         )
         sns_client.publish(
             TopicArn=_CERT_RENEWAL_TOPIC_ARN,
@@ -415,7 +348,6 @@ def _route(
                 'account_name': account_name,
                 'days_left': days,
                 'expiry_date': expiry_iso,
-<<<<<<< HEAD
                 'jenkins_status': jenkins_result['status'],
                 'jenkins_message': jenkins_result['message'],
             })
@@ -428,15 +360,6 @@ def _route(
     # days <= 14, including expired (negative days)
     subject, body = _build_p1_message(
         app_name, account_id, account_name, days, expiry_iso, catalogue
-=======
-            })
-        )
-        return 'renewal_needed'
-
-    # days <= 14, including expired (negative days)
-    subject, body = _build_p1_message(
-        app_name, account_id, account_name, days, expiry_iso
->>>>>>> origin/main
     )
     sns_client.publish(
         TopicArn=_CERT_P1_ALERT_TOPIC_ARN,
@@ -452,7 +375,6 @@ def _route(
             'expiry_date': expiry_iso,
         })
     )
-<<<<<<< HEAD
     return {'status': 'p1_action_required'}
 
 
@@ -733,9 +655,6 @@ def _jenkins_crumb_header(session: requests.Session, base_url: str) -> dict:
     if not field or not crumb:
         return {}
     return {field: crumb}
-=======
-    return 'p1_action_required'
->>>>>>> origin/main
 
 
 def _build_renewal_message(
@@ -744,11 +663,8 @@ def _build_renewal_message(
     account_name: str,
     days_left: int,
     expiry_date: str,
-<<<<<<< HEAD
     catalogue: CatalogueContext,
     jenkins_result: dict,
-=======
->>>>>>> origin/main
 ) -> tuple[str, str]:
     subject = f'[CERT RENEWAL NEEDED] {app_name} expires in {days_left} days'
     subject = subject[:100]
@@ -761,7 +677,6 @@ def _build_renewal_message(
         f'Days remaining:      {days_left}\n\n'
         f'Jenkins renewal job: {_JENKINS_JOB_NAME}\n'
         f'Jenkins job URL:     {_JENKINS_JOB_URL}\n'
-<<<<<<< HEAD
         f'PRODUCT_TEAM:        {catalogue.product_team or "unknown"}\n'
         f'ENVIRONMENT:         {catalogue.environment or "unknown"}\n'
         f'APP_NAME parameter:  {app_name}\n\n'
@@ -771,11 +686,6 @@ def _build_renewal_message(
         f'Confirm the Jenkins job completes and the Secrets Manager secret is updated. '
         f'If auto-trigger failed or was skipped unexpectedly, run the Jenkins '
         f'certificate issuance job manually using the parameters above.\n\n'
-=======
-        f'APP_NAME parameter:  {app_name}\n\n'
-        f'Required action:\n'
-        f'Run the Jenkins certificate issuance job using the APP_NAME value above.\n\n'
->>>>>>> origin/main
         f'Runbook:\n'
         f'{_RUNBOOK_URL}\n'
     )
@@ -788,10 +698,7 @@ def _build_p1_message(
     account_name: str,
     days_left: int,
     expiry_date: str,
-<<<<<<< HEAD
     catalogue: CatalogueContext,
-=======
->>>>>>> origin/main
 ) -> tuple[str, str]:
     if days_left < 0:
         subject = (
@@ -811,11 +718,8 @@ def _build_p1_message(
         f'Days remaining:      {days_left}\n\n'
         f'Jenkins renewal job: {_JENKINS_JOB_NAME}\n'
         f'Jenkins job URL:     {_JENKINS_JOB_URL}\n'
-<<<<<<< HEAD
         f'PRODUCT_TEAM:        {catalogue.product_team or "unknown"}\n'
         f'ENVIRONMENT:         {catalogue.environment or "unknown"}\n'
-=======
->>>>>>> origin/main
         f'APP_NAME parameter:  {app_name}\n\n'
         f'Required action:\n'
         f'1. Run the Jenkins certificate issuance job immediately.\n'

@@ -42,7 +42,6 @@ output "bitbucket_token_secret_arn" {
   description = "ARN of the Bitbucket token Secrets Manager secret."
   value       = local.bitbucket_token_secret_arn
 }
-<<<<<<< HEAD
 
 output "jenkins_trigger_secret_arn" {
   description = "ARN of the Jenkins trigger credential Secrets Manager secret."
@@ -58,5 +57,3 @@ output "daily_schedule_arn" {
   description = "ARN of the EventBridge Scheduler schedule that invokes the Lambda daily."
   value       = module.cert_expiry_checker.daily_schedule_arn
 }
-=======
->>>>>>> origin/main

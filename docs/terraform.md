@@ -6,11 +6,7 @@ Terraform manages AWS infrastructure for certificate expiry monitoring and spoke
 
 | Root | Applied in | Purpose |
 | --- | --- | --- |
-<<<<<<< HEAD
 | `terraform/shared-services/` | shared-services account | Lambda, EventBridge Scheduler, SNS, CloudWatch logs, Lambda execution role, optional Bitbucket and Jenkins trigger secret containers |
-=======
-| `terraform/shared-services/` | shared-services account | Lambda, SNS, CloudWatch logs, Lambda execution role, optional Bitbucket token secret container |
->>>>>>> origin/main
 | `terraform/spoke/` | each spoke account | `CertLifecycleRole`, read policy, optional KMS decrypt, optional jagent write policy |
 
 `shared-services` requires Terraform `>= 1.9.0`. `spoke` requires Terraform `>= 1.3.0`.
@@ -123,14 +119,10 @@ Important shared-services inputs:
 - `lambda_s3_bucket` and `lambda_s3_key`, or `lambda_package_path`
 - `jenkins_job_name`
 - `jenkins_job_url`
-<<<<<<< HEAD
 - `jenkins_trigger_secret_name`
 - `runbook_url`
 - `daily_schedule_expression`
 - `daily_schedule_timezone`
-=======
-- `runbook_url`
->>>>>>> origin/main
 
 Important shared-services outputs:
 
@@ -140,12 +132,9 @@ Important shared-services outputs:
 - `cert_renewal_topic_arn`
 - `cert_p1_alert_topic_arn`
 - `bitbucket_token_secret_arn`
-<<<<<<< HEAD
 - `jenkins_trigger_secret_arn`
 - `daily_schedule_name`
 - `daily_schedule_arn`
-=======
->>>>>>> origin/main
 
 Important spoke inputs:
 
@@ -167,15 +156,11 @@ Terraform sets:
 - `CERT_P1_ALERT_TOPIC_ARN`
 - `JENKINS_JOB_NAME`
 - `JENKINS_JOB_URL`
-<<<<<<< HEAD
 - `JENKINS_TRIGGER_SECRET_ID`
-=======
->>>>>>> origin/main
 - `RUNBOOK_URL`
 
 Terraform intentionally does not set `AWS_REGION`; Lambda provides it at runtime and `handler.py` reads it from the runtime environment.
 
-<<<<<<< HEAD
 ## Daily schedule
 
 Shared-services Terraform creates an EventBridge Scheduler schedule named `slug-cert-expiry-checker-daily` by default. It runs:
@@ -198,24 +183,15 @@ Terraform can create the Secrets Manager secret container `/slug/cert-lifecycle/
 
 The Lambda reads this secret only when it needs to trigger Jenkins. The Jenkins job URL remains a Terraform variable and credentials are not stored in Terraform.
 
-=======
->>>>>>> origin/main
 ## What Terraform does not manage
 
 - certificate private keys or PEM bodies
 - `/slug/certs/*` secret values
 - Bitbucket token value
-<<<<<<< HEAD
 - Jenkins trigger credential value
 - catalogue YAML content
 - Vault PKI configuration
 - Jenkins job configuration
-=======
-- catalogue YAML content
-- Vault PKI configuration
-- Jenkins job configuration
-- EventBridge schedules
->>>>>>> origin/main
 - SNS subscriptions
 - application restart or reload
 
