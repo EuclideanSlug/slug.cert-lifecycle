@@ -27,6 +27,7 @@ output "cloudwatch_log_group_arn" {
   description = "ARN of the Lambda CloudWatch log group."
   value       = aws_cloudwatch_log_group.lambda_logs.arn
 }
+<<<<<<< HEAD
 
 output "daily_schedule_name" {
   description = "Name of the EventBridge Scheduler schedule that invokes the Lambda daily."
@@ -37,3 +38,5 @@ output "daily_schedule_arn" {
   description = "ARN of the EventBridge Scheduler schedule that invokes the Lambda daily."
   value       = aws_scheduler_schedule.daily_expiry_check.arn
 }
+=======
+>>>>>>> origin/main

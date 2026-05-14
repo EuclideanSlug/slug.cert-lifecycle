@@ -53,6 +53,7 @@ variable "bitbucket_token_secret_arn" {
   }
 }
 
+<<<<<<< HEAD
 # ── Jenkins trigger secret ────────────────────────────────────────────────────
 
 variable "create_jenkins_trigger_secret" {
@@ -78,6 +79,8 @@ variable "jenkins_trigger_secret_arn" {
   }
 }
 
+=======
+>>>>>>> origin/main
 # ── Lambda packaging ──────────────────────────────────────────────────────────
 
 variable "lambda_package_path" {
@@ -181,6 +184,7 @@ variable "runbook_url" {
   type        = string
 }
 
+<<<<<<< HEAD
 # ── EventBridge Scheduler ─────────────────────────────────────────────────────
 
 variable "daily_schedule_name" {
@@ -207,6 +211,8 @@ variable "scheduler_role_name" {
   default     = "slug-cert-expiry-checker-scheduler-role"
 }
 
+=======
+>>>>>>> origin/main
 # ── Tagging ───────────────────────────────────────────────────────────────────
 
 variable "tags" {

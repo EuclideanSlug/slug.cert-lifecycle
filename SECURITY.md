@@ -9,5 +9,9 @@ Before deploying a fork or copy:
 - replace all `slug` example prefixes with your platform prefix
 - replace example account suffixes, Jenkins labels, and product-team names
 - keep real `.tfvars`, backend files, Terraform state, certificate material, and tokens out of Git
+<<<<<<< HEAD
 - set Bitbucket and Jenkins trigger token values manually in Secrets Manager, not in Terraform
+=======
+- set Bitbucket token values manually in Secrets Manager, not in Terraform
+>>>>>>> origin/main
 - review IAM trust relationships and resource ARNs for your own AWS accounts
