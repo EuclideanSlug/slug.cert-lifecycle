@@ -1,0 +1,42 @@
+# Test testa spoke variable file.
+# Copy to test-testa.tfvars and fill in real values before running terraform.
+# DO NOT commit test-testa.tfvars — it contains account IDs and configuration.
+# This .example file may be committed; it contains only placeholders.
+#
+# Pattern applies to all test spoke accounts: test-testa through test-testg.
+# Copy and rename for each account, replacing 'testa' with the target account name.
+#
+# Backend config is separate: create envs/test-testa-backend.hcl (see docs/terraform.md).
+#
+# There is no test shared-services account. The lambda_execution_role_arn below
+# comes from the preprod shared-services apply. Add this account's ID to
+# spoke_account_ids in terraform/shared-services/envs/preprod.tfvars to allow
+# the preprod Lambda to assume CertLifecycleRole here.
+
+aws_region = "eu-west-2"
+
+spoke_account_id = "<testa-account-id>"
+
+# ── CertLifecycleRole ─────────────────────────────────────────────────────────
+# lambda_execution_role_arn comes from the preprod shared-services output:
+#   make tf-plan TARGET_TYPE=shared ENVIRONMENT=preprod
+#   terraform -chdir=terraform/shared-services output lambda_execution_role_arn
+
+spoke_role_name           = "CertLifecycleRole"
+lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/slug-cert-expiry-checker-role"
+
+kms_key_arns = []
+
+# ── jagent issuer permissions (optional) ─────────────────────────────────────
+
+enable_issuer_permissions = false
+jagent_role_name          = "jagent-ec2-role"
+jagent_kms_key_arns       = []
+
+# ── Tagging ───────────────────────────────────────────────────────────────────
+
+tags = {
+  "environment" = "test"
+  "account"     = "testa"
+  "team"        = "platform"
+}

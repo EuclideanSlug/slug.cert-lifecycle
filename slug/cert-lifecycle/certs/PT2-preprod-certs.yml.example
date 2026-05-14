@@ -1,0 +1,25 @@
+# Replace account_id '<account-id>' with the real AWS account ID for preprodc before first issuance.
+apps:
+  - name: payments-api-preprodc
+    common_name: payments-api.preprod.example.internal
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ec2
+      account_id: '<account-id>'
+      account_name: preprodc
+    activation: maintenance-window
+    maintenance_window: sun:02:00-04:00
+
+  - name: edge-proxy-preprodc
+    common_name: edge-proxy.preprod.example.internal
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ecs
+      account_id: '<account-id>'
+      account_name: preprodc
+      cluster: example-preprodc-edge
+      service: example-preprodc-edge-service
+    activation: rolling
+    maintenance_window: mon-fri:22:00-06:00

@@ -1,0 +1,8 @@
+---
+- name: Issue certificate from Vault and write to Secrets Manager
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  roles:
+    - role: universal-vault-cert-issuer

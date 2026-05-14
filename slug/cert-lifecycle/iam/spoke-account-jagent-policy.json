@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateAndUpdateCertSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:TagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/slug/certs/*"
+    }
+  ]
+}

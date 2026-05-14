@@ -1,0 +1,12 @@
+# Replace account_id '<account-id>' with the real AWS account ID for devc before first issuance.
+apps:
+  - name: payments-api-devc
+    common_name: payments-api.dev.example.internal
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ec2
+      account_id: '<account-id>'
+      account_name: devc
+    activation: maintenance-window
+    maintenance_window: sun:02:00-04:00

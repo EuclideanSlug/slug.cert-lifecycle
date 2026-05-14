@@ -1,0 +1,5 @@
+---
+aws_region: eu-west-2
+vault_pki_path: pki
+vault_pki_role: internal-tls
+sans: []

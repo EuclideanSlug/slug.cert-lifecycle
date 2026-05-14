@@ -1,0 +1,12 @@
+# Replace account_id '<account-id>' with the real AWS account ID for prodc before first issuance.
+apps:
+  - name: payments-api-prodc
+    common_name: payments-api.prod.example.internal
+    sans: []
+    ttl: 2160h
+    deployment:
+      type: ec2
+      account_id: '<account-id>'
+      account_name: prodc
+    activation: maintenance-window
+    maintenance_window: sun:01:00-03:00

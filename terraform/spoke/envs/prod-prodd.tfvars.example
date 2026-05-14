@@ -1,0 +1,41 @@
+# Prod prodd spoke variable file.
+# Copy to prod-prodd.tfvars and fill in real values before running terraform.
+# DO NOT commit prod-prodd.tfvars — it may contain account IDs and configuration.
+# This .example file may be committed; it contains only placeholders.
+#
+# Pattern applies to all prod spoke accounts: prod-prodc through prod-prodj.
+# Copy and rename for each account, replacing 'prodd' with the target account name.
+#
+# Backend config is separate: create envs/prod-prodd-backend.hcl (see docs/terraform.md).
+#
+# NOTE: prodc is dual-purpose: it hosts prod shared-services and may also need this
+# spoke role for certificates local to prodc. Apply terraform/shared-services with
+# ENVIRONMENT=prod into prodc before applying spoke roots.
+
+aws_region = "eu-west-2"
+
+spoke_account_id = "<prodd-account-id>"
+
+# ── CertLifecycleRole ─────────────────────────────────────────────────────────
+# lambda_execution_role_arn comes from the prod shared-services (prodc) output:
+#   terraform -chdir=terraform/shared-services output lambda_execution_role_arn
+# (run with ENVIRONMENT=prod / prodc credentials active)
+
+spoke_role_name           = "CertLifecycleRole"
+lambda_execution_role_arn = "arn:aws:iam::<prodc-account-id>:role/slug-cert-expiry-checker-role"
+
+kms_key_arns = []
+
+# ── jagent issuer permissions (optional) ─────────────────────────────────────
+
+enable_issuer_permissions = false
+jagent_role_name          = "jagent-ec2-role"
+jagent_kms_key_arns       = []
+
+# ── Tagging ───────────────────────────────────────────────────────────────────
+
+tags = {
+  "environment" = "prod"
+  "account"     = "prodd"
+  "team"        = "platform"
+}

@@ -1,0 +1,112 @@
+/**
+ * issueCertificate(app)
+ *
+ * Issues or renews a certificate for one enrolled application.
+ * Accepts a single Map representing one entry from a PTx-<env>-certs.yml catalogue file.
+ *
+ * Assumes jagent-ec2-role in the target spoke account, writes a non-secret Ansible vars
+ * file, invokes the universal-vault-cert-issuer role, then removes the vars file.
+ */
+def call(Map app) {
+    _validateApp(app)
+
+    String accountId   = app.deployment.account_id
+    String accountName = app.deployment.account_name
+    String secretName  = "/slug/certs/${app.name}"
+    String varsFile    = "${env.WORKSPACE}/.cert-vars-${currentBuild.number}-${UUID.randomUUID().toString()}.json"
+
+    echo "issueCertificate: app=${app.name} account=${accountName} (${accountId})"
+
+    try {
+        writeFile file: varsFile, text: _toJson(_buildVarsMap(app, secretName))
+
+        String quotedVarsFile = _shellQuote(varsFile)
+
+        withAWS(role: 'jagent-ec2-role', roleAccount: accountId, region: 'eu-west-2') {
+            withEnv(["ANSIBLE_ROLES_PATH=${env.WORKSPACE}/slug/cert-lifecycle/ansible/roles"]) {
+                sh(script: """
+                    set +x
+                    ansible-playbook slug/cert-lifecycle/ansible/playbooks/issue-certificate.yml \\
+                        --extra-vars @${quotedVarsFile}
+                """)
+            }
+        }
+    } finally {
+        sh "rm -f ${_shellQuote(varsFile)}"
+    }
+}
+
+private void _validateApp(Map app) {
+    if (app == null) {
+        error('issueCertificate: app argument must not be null')
+    }
+
+    for (String field : ['name', 'common_name', 'ttl', 'deployment']) {
+        if (!app.get(field)) {
+            error("issueCertificate: missing required field '${field}'")
+        }
+    }
+
+    if (!(app.name ==~ /^[A-Za-z0-9][A-Za-z0-9_.-]*-[A-Za-z0-9][A-Za-z0-9_.-]*$/)) {
+        error("issueCertificate: invalid app name '${app.name}'. Use only letters, numbers, dot, underscore, and hyphen, with an account suffix")
+    }
+
+    Map dep = app.deployment as Map
+
+    for (String field : ['type', 'account_id', 'account_name']) {
+        if (!dep.get(field)) {
+            error("issueCertificate: missing required deployment.${field} in app '${app.name}'")
+        }
+    }
+
+    if (!(dep.account_id ==~ /^[0-9]{12}$/)) {
+        error("issueCertificate: deployment.account_id for app '${app.name}' must be a 12-digit AWS account ID")
+    }
+
+    if (!(dep.account_name ==~ /^[A-Za-z0-9][A-Za-z0-9_.-]*$/)) {
+        error("issueCertificate: invalid deployment.account_name '${dep.account_name}' for app '${app.name}'")
+    }
+
+    if (!['ec2', 'ecs'].contains(dep.type)) {
+        error("issueCertificate: invalid deployment.type '${dep.type}' for app '${app.name}'. Must be 'ec2' or 'ecs'")
+    }
+
+    if (!app.name.endsWith("-${dep.account_name}")) {
+        error("issueCertificate: app name '${app.name}' must end with '-${dep.account_name}'")
+    }
+
+    if (dep.type == 'ecs') {
+        for (String field : ['cluster', 'service']) {
+            if (!dep.get(field)) {
+                error("issueCertificate: ECS app '${app.name}' is missing deployment.${field}")
+            }
+        }
+    }
+}
+
+@NonCPS
+private Map _buildVarsMap(Map app, String secretName) {
+    return [
+        app_name:           app.name,
+        common_name:        app.common_name,
+        sans:               app.sans ?: [],
+        ttl:                app.ttl,
+        deployment_type:    app.deployment.type,
+        account_id:         app.deployment.account_id,
+        account_name:       app.deployment.account_name,
+        secret_name:        secretName,
+        aws_region:         'eu-west-2',
+        activation:         app.activation ?: '',
+        maintenance_window: app.maintenance_window ?: '',
+    ]
+}
+
+@NonCPS
+private String _toJson(Map vars) {
+    groovy.json.JsonOutput.toJson(vars)
+}
+
+@NonCPS
+private String _shellQuote(String value) {
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+}

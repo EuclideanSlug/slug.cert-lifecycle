@@ -1,0 +1,224 @@
+String shellQuote(String value) {
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+}
+
+void validateSafeRelativePath(String value, String parameterName) {
+    if (!value || value.startsWith('/') || value.contains('..') || value.contains('//')) {
+        error("${parameterName} must be a relative path without '..' or duplicate slashes")
+    }
+    if (!(value ==~ /^[A-Za-z0-9_.\/-]+$/)) {
+        error("${parameterName} contains unsupported characters")
+    }
+}
+
+pipeline {
+    // prod runs on the prod shared-services Jenkins agent; all others use preprod.
+    agent { label params.ENVIRONMENT == 'prod' ? 'prodc' : 'preprod' }
+
+    parameters {
+        choice(
+            name: 'TARGET_TYPE',
+            choices: ['shared', 'spoke'],
+            description: 'shared = shared-services account (applied once); spoke = one spoke account per run'
+        )
+        choice(
+            name: 'ACTION',
+            choices: ['plan', 'apply', 'destroy'],
+            description: 'Terraform action. plan = plan only; apply = plan then apply; destroy = plan destroy then apply destroy'
+        )
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'test', 'preprod', 'prod'],
+            description: 'Target environment'
+        )
+        choice(
+            name: 'SPOKE_ACCOUNT_NAME',
+            choices: [
+                '',
+                // dev spokes
+                'Dev', 'deva', 'devb', 'devc', 'devd', 'deve', 'devf', 'devg',
+                // test spokes
+                'testa', 'testb', 'testc', 'testd', 'teste', 'testf', 'testg',
+                // preprod spokes
+                'preprod', 'preproda', 'preprodb', 'preprodc', 'preprodd', 'preprode', 'preprodf', 'preprodg',
+                // prod spokes
+                'prodc', 'prodd', 'prode', 'prodf', 'prodg', 'prodh', 'prodi', 'prodj'
+            ],
+            description: 'Required when TARGET_TYPE=spoke. preprod/prodc are dual-purpose shared-services and spoke accounts.'
+        )
+        string(
+            name: 'TF_VAR_FILE',
+            defaultValue: '',
+            description: 'Optional. Override .tfvars path under the selected Terraform root envs/ directory. If empty, resolved from convention.'
+        )
+        booleanParam(
+            name: 'AUTO_APPROVE',
+            defaultValue: false,
+            description: 'When true, skip the manual confirmation step before apply/destroy. Requires deliberate operator intent.'
+        )
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Validate parameters') {
+            steps {
+                script {
+                    // dev and test have no shared-services account.
+                    // preprod and prodc are dual-purpose: they host shared-services
+                    // infra and also receive the spoke role/policies for local certs.
+                    if (params.TARGET_TYPE == 'shared' && params.ENVIRONMENT in ['dev', 'test']) {
+                        error("TARGET_TYPE=shared is not valid for ENVIRONMENT='${params.ENVIRONMENT}'. " +
+                              "Shared-services accounts exist for preprod and prod only.")
+                    }
+                    if (params.TARGET_TYPE == 'spoke' && !params.SPOKE_ACCOUNT_NAME?.trim()) {
+                        error('SPOKE_ACCOUNT_NAME is required when TARGET_TYPE=spoke')
+                    }
+                    if (params.TARGET_TYPE == 'spoke' && params.SPOKE_ACCOUNT_NAME?.trim()) {
+                        Map<String, List<String>> validSpokes = [
+                            'dev':     ['Dev', 'deva', 'devb', 'devc', 'devd', 'deve', 'devf', 'devg'],
+                            'test':    ['testa', 'testb', 'testc', 'testd', 'teste', 'testf', 'testg'],
+                            'preprod': ['preprod', 'preproda', 'preprodb', 'preprodc', 'preprodd', 'preprode', 'preprodf', 'preprodg'],
+                            'prod':    ['prodc', 'prodd', 'prode', 'prodf', 'prodg', 'prodh', 'prodi', 'prodj']
+                        ]
+                        List<String> allowed = validSpokes[params.ENVIRONMENT] ?: []
+                        if (!allowed.contains(params.SPOKE_ACCOUNT_NAME.trim())) {
+                            error("SPOKE_ACCOUNT_NAME '${params.SPOKE_ACCOUNT_NAME.trim()}' is not valid for ENVIRONMENT '${params.ENVIRONMENT}'. " +
+                                  "Valid spoke accounts: ${allowed.join(', ')}")
+                        }
+                    }
+                    if (params.ACTION == 'destroy' && params.AUTO_APPROVE) {
+                        error('AUTO_APPROVE=true is not allowed with ACTION=destroy. Destroy requires manual Jenkins confirmation.')
+                    }
+                }
+            }
+        }
+
+        stage('Resolve paths') {
+            steps {
+                script {
+                    env.TF_ROOT = params.TARGET_TYPE == 'shared'
+                        ? 'terraform/shared-services'
+                        : 'terraform/spoke'
+
+                    String spokeTag = params.SPOKE_ACCOUNT_NAME?.trim() ?: ''
+
+                    // Backend config (relative to TF_ROOT) — operator-created, not committed.
+                    env.BACKEND_CFG = params.TARGET_TYPE == 'shared'
+                        ? "envs/${params.ENVIRONMENT}-backend.hcl"
+                        : "envs/${params.ENVIRONMENT}-${spokeTag}-backend.hcl"
+
+                    // Var file: auto-derived (relative to TF_ROOT) or validated repo-root override.
+                    if (params.TF_VAR_FILE?.trim()) {
+                        String provided = params.TF_VAR_FILE.trim()
+                        validateSafeRelativePath(provided, 'TF_VAR_FILE')
+                        if (!provided.endsWith('.tfvars')) {
+                            error('TF_VAR_FILE must point to a .tfvars file')
+                        }
+                        String rootPrefix = "${env.TF_ROOT}/"
+                        env.VAR_FILE = provided.startsWith(rootPrefix)
+                            ? provided.substring(rootPrefix.length())
+                            : provided
+                        validateSafeRelativePath(env.VAR_FILE, 'resolved TF_VAR_FILE')
+                        if (!env.VAR_FILE.startsWith('envs/')) {
+                            error('TF_VAR_FILE must resolve under the selected Terraform root envs/ directory')
+                        }
+                    } else if (params.TARGET_TYPE == 'shared') {
+                        env.VAR_FILE = "envs/${params.ENVIRONMENT}.tfvars"
+                    } else {
+                        env.VAR_FILE = "envs/${params.ENVIRONMENT}-${spokeTag}.tfvars"
+                    }
+
+                    env.PLAN_FILE = params.ACTION == 'destroy' ? 'tfdestroy' : 'tfplan'
+
+                    echo "Target type    : ${params.TARGET_TYPE}"
+                    echo "Action         : ${params.ACTION}"
+                    echo "Environment    : ${params.ENVIRONMENT}"
+                    echo "Spoke account  : ${spokeTag ?: 'N/A'}"
+                    echo "Terraform root : ${env.TF_ROOT}"
+                    echo "Var file       : ${env.TF_ROOT}/${env.VAR_FILE}"
+                    echo "Backend config : ${env.TF_ROOT}/${env.BACKEND_CFG}"
+                }
+            }
+        }
+
+        stage('terraform fmt') {
+            steps {
+                sh 'terraform fmt -check -recursive'
+            }
+        }
+
+        stage('terraform init') {
+            steps {
+                dir(env.TF_ROOT) {
+                    sh """
+                        set +x
+                        terraform init -backend-config=${shellQuote(env.BACKEND_CFG)}
+                    """
+                }
+            }
+        }
+
+        stage('terraform validate') {
+            steps {
+                dir(env.TF_ROOT) {
+                    sh 'terraform validate'
+                }
+            }
+        }
+
+        stage('terraform plan') {
+            steps {
+                dir(env.TF_ROOT) {
+                    script {
+                        String destroyFlag = params.ACTION == 'destroy' ? '-destroy' : ''
+                        sh """
+                            set +x
+                            terraform plan ${destroyFlag} -var-file=${shellQuote(env.VAR_FILE)} -out=${shellQuote(env.PLAN_FILE)}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Confirm apply/destroy') {
+            when {
+                expression { params.ACTION in ['apply', 'destroy'] && !params.AUTO_APPROVE }
+            }
+            steps {
+                script {
+                    String target = "${params.TARGET_TYPE} / ${params.ENVIRONMENT}"
+                    if (params.SPOKE_ACCOUNT_NAME?.trim()) {
+                        target += " / ${params.SPOKE_ACCOUNT_NAME.trim()}"
+                    }
+                    String verb = params.ACTION == 'destroy' ? 'DESTROY' : 'Apply'
+                    input message: "${verb} ${target}. Review the plan output above and confirm to proceed.", ok: 'Proceed'
+                }
+            }
+        }
+
+        stage('terraform apply') {
+            when {
+                expression { params.ACTION in ['apply', 'destroy'] }
+            }
+            steps {
+                dir(env.TF_ROOT) {
+                    sh """
+                        set +x
+                        terraform apply ${shellQuote(env.PLAN_FILE)}
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
