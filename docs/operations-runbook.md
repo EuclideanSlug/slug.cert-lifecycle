@@ -42,7 +42,7 @@ Run in the spoke account:
 
 ```bash
 aws secretsmanager describe-secret \
-  --secret-id /scip/certs/b2bi-preprodc \
+  --secret-id /slug/certs/b2bi-preprodc \
   --region eu-west-2 \
   --query 'VersionIdsToStages'
 ```
@@ -53,7 +53,7 @@ To check the certificate expiry without printing the private key:
 
 ```bash
 aws secretsmanager get-secret-value \
-  --secret-id /scip/certs/b2bi-preprodc \
+  --secret-id /slug/certs/b2bi-preprodc \
   --region eu-west-2 \
   --query 'SecretString' \
   --output text | python3 -c "
@@ -90,14 +90,14 @@ Application teams own reload and runtime verification.
 The expiry checker log group is:
 
 ```text
-/aws/lambda/scip-cert-expiry-checker
+/aws/lambda/slug-cert-expiry-checker
 ```
 
 Run in the shared-services account:
 
 ```bash
 aws logs describe-log-streams \
-  --log-group-name /aws/lambda/scip-cert-expiry-checker \
+  --log-group-name /aws/lambda/slug-cert-expiry-checker \
   --region eu-west-2 \
   --order-by LastEventTime \
   --descending \
@@ -126,7 +126,7 @@ Only roll back when the newly issued certificate is wrong. The previous version 
 
    ```bash
    aws secretsmanager list-secret-version-ids \
-     --secret-id /scip/certs/b2bi-preprodc \
+     --secret-id /slug/certs/b2bi-preprodc \
      --region eu-west-2 \
      --query 'Versions[*].{VersionId:VersionId,Labels:VersionStages}'
    ```
@@ -136,7 +136,7 @@ Only roll back when the newly issued certificate is wrong. The previous version 
 
    ```bash
    aws secretsmanager update-secret-version-stage \
-     --secret-id /scip/certs/b2bi-preprodc \
+     --secret-id /slug/certs/b2bi-preprodc \
      --version-stage AWSCURRENT \
      --move-to-version-id <previous-version-id> \
      --remove-from-version-id <current-version-id> \
@@ -150,14 +150,15 @@ Only roll back when the newly issued certificate is wrong. The previous version 
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `APP_NAME ... not found` | Wrong product team, environment, or app name | Search `scip/cert-lifecycle/certs/` for the exact `name` |
+| `APP_NAME ... not found` | Wrong product team, environment, or app name | Search `slug/cert-lifecycle/certs/` for the exact `name` |
 | Duplicate app names | Catalogue contains repeated `name` | Rename or remove duplicate and run the validator |
 | Account mismatch from Ansible | `deployment.account_id` is wrong or Jenkins assumed the wrong account | Correct the catalogue or role assumption |
 | STS `AccessDenied` assuming `jagent-ec2-role` | Missing role or trust policy in spoke | Fix `jagent-ec2-role` trust |
 | Secrets Manager `AccessDenied` during issuance | Missing jagent write policy | Apply `spoke-account-jagent-policy.json` or enable Terraform issuer permissions where appropriate |
 | Lambda `Secret not found` | Certificate has not been issued yet | Run the Jenkins issuance job |
 | Lambda KMS decrypt error | Secret uses a customer-managed key without role decrypt access | Add the KMS addon policy or `kms_key_arns` in spoke Terraform |
-| Lambda Bitbucket 401 | Token missing, expired, or wrong secret format | Update `/scip/cert-lifecycle/bitbucket-token` with `{"token":"..."}` |
+| Lambda Bitbucket 401 | Token missing, expired, or wrong secret format | Update `/slug/cert-lifecycle/bitbucket-token` with `{"token":"..."}` |
+| Lambda invocation fails with no apps loaded | All configured catalogue URLs failed or returned no `apps` list | Check `BITBUCKET_CATALOGUE_URLS`, token access, and catalogue file paths |
 | SNS publish failure | Wrong topic ARN or missing Lambda permission | Check Lambda env vars and execution-role policy |
 | Invalid PEM | Secret payload is corrupt or not a PEM certificate | Re-issue the certificate |
 

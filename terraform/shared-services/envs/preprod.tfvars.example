@@ -3,7 +3,7 @@
 # DO NOT commit preprod.tfvars — it contains account IDs and configuration.
 # This .example file may be committed; it contains only placeholders.
 #
-# Backend config is separate: create envs/preprod-backend.hcl (see terraform-deployment.md).
+# Backend config is separate: create envs/preprod-backend.hcl (see docs/terraform.md).
 #
 # There is no dev or test shared-services account. If this Lambda is intended to monitor
 # dev and/or test spoke accounts as well as preprod spokes, add those account IDs to
@@ -14,35 +14,35 @@ shared_account_id = "<preprod-shared-account-id>"
 
 # ── SNS ───────────────────────────────────────────────────────────────────────
 
-cert_renewal_topic_name  = "scip-cert-renewal"
-cert_p1_alert_topic_name = "scip-cert-p1-alerts"
+cert_renewal_topic_name  = "slug-cert-renewal"
+cert_p1_alert_topic_name = "slug-cert-p1-alerts"
 
 # ── Bitbucket token secret ────────────────────────────────────────────────────
 # Set create_bitbucket_token_secret = false and provide bitbucket_token_secret_arn
 # if the secret already exists outside this Terraform state.
 
 create_bitbucket_token_secret = true
-bitbucket_token_secret_name   = "/scip/cert-lifecycle/bitbucket-token"
-# bitbucket_token_secret_arn  = "arn:aws:secretsmanager:eu-west-2:<preprod-shared-account-id>:secret:/scip/cert-lifecycle/bitbucket-token-XXXXXX"
+bitbucket_token_secret_name   = "/slug/cert-lifecycle/bitbucket-token"
+# bitbucket_token_secret_arn  = "arn:aws:secretsmanager:eu-west-2:<preprod-shared-account-id>:secret:/slug/cert-lifecycle/bitbucket-token-XXXXXX"
 
 # ── Lambda packaging ──────────────────────────────────────────────────────────
 # Supply exactly one of lambda_package_path (local build) or lambda_s3_bucket + lambda_s3_key.
 
-lambda_s3_bucket         = "scip-lambda-artefacts-<preprod-shared-account-id>"
+lambda_s3_bucket         = "slug-lambda-artefacts-<preprod-shared-account-id>"
 lambda_s3_key            = "cert-lifecycle/expiry_checker.zip"
 lambda_s3_object_version = "<s3-object-version>"
 
 # ── Lambda tuning ─────────────────────────────────────────────────────────────
 
-lambda_function_name       = "scip-cert-expiry-checker"
-lambda_execution_role_name = "scip-cert-expiry-checker-role"
+lambda_function_name       = "slug-cert-expiry-checker"
+lambda_execution_role_name = "slug-cert-expiry-checker-role"
 lambda_timeout             = 300
 lambda_memory_size         = 256
 lambda_log_retention_days  = 30
 
 # ── Lambda runtime configuration ──────────────────────────────────────────────
 
-catalogue_urls = "https://bitbucket.example.com/projects/SCIP/repos/cert-lifecycle/raw/scip/cert-lifecycle/certs/PT2-preprod-certs.yml"
+catalogue_urls = "https://bitbucket.example.com/projects/Slug/repos/cert-lifecycle/raw/slug/cert-lifecycle/certs/PT2-preprod-certs.yml"
 
 spoke_role_name = "CertLifecycleRole"
 
@@ -76,9 +76,9 @@ spoke_account_ids = [
   # "<testg-account-id>",
 ]
 
-jenkins_job_name = "scip-cert-lifecycle/issue-certificate"
-jenkins_job_url  = "https://jenkins.example.com/job/scip-cert-lifecycle/job/issue-certificate"
-runbook_url      = "https://confluence.example.com/display/SCIP/cert-lifecycle-runbook"
+jenkins_job_name = "slug-cert-lifecycle/issue-certificate"
+jenkins_job_url  = "https://jenkins.example.com/job/slug-cert-lifecycle/job/issue-certificate"
+runbook_url      = "https://confluence.example.com/display/Slug/cert-lifecycle-runbook"
 
 # ── Tagging ───────────────────────────────────────────────────────────────────
 

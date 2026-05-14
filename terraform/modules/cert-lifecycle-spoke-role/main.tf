@@ -29,14 +29,14 @@ data "aws_iam_policy_document" "certlifecycle_read" {
     ]
 
     resources = [
-      "arn:aws:secretsmanager:${var.aws_region}:${var.spoke_account_id}:secret:/scip/certs/*",
+      "arn:aws:secretsmanager:${var.aws_region}:${var.spoke_account_id}:secret:/slug/certs/*",
     ]
   }
 }
 
 resource "aws_iam_policy" "certlifecycle_read" {
   name        = "${var.spoke_role_name}-read-certs"
-  description = "Read-only access to /scip/certs/* for SCIP certificate expiry checking."
+  description = "Read-only access to /slug/certs/* for Slug certificate expiry checking."
   policy      = data.aws_iam_policy_document.certlifecycle_read.json
   tags        = var.tags
 }

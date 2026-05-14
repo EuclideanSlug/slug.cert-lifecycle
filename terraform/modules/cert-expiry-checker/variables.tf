@@ -1,13 +1,13 @@
 variable "lambda_function_name" {
   description = "Name of the expiry checker Lambda function."
   type        = string
-  default     = "scip-cert-expiry-checker"
+  default     = "slug-cert-expiry-checker"
 }
 
 variable "lambda_execution_role_name" {
   description = "Name of the Lambda execution IAM role."
   type        = string
-  default     = "scip-cert-expiry-checker-role"
+  default     = "slug-cert-expiry-checker-role"
 }
 
 variable "lambda_handler" {
@@ -72,7 +72,7 @@ variable "bitbucket_token_secret_arn" {
 variable "bitbucket_token_secret_name" {
   description = "Name or path of the Bitbucket token secret. Used as the BITBUCKET_TOKEN_SECRET_ID Lambda environment variable."
   type        = string
-  default     = "/scip/cert-lifecycle/bitbucket-token"
+  default     = "/slug/cert-lifecycle/bitbucket-token"
 }
 
 variable "catalogue_urls" {

@@ -2,7 +2,7 @@ locals {
   tags = merge(
     {
       "managed-by" = "terraform"
-      "project"    = "scip-cert-lifecycle"
+      "project"    = "slug-cert-lifecycle"
       "component"  = "cert-lifecycle"
     },
     var.tags,
@@ -26,7 +26,7 @@ module "spoke_role" {
 #
 # Only enable when this Terraform state owns jagent-ec2-role.
 # If jagent-ec2-role is managed externally, apply the policy documented in
-# scip/cert-lifecycle/iam/spoke-account-jagent-policy.json manually instead.
+# slug/cert-lifecycle/iam/spoke-account-jagent-policy.json manually instead.
 
 module "issuer_permissions" {
   count  = var.enable_issuer_permissions ? 1 : 0

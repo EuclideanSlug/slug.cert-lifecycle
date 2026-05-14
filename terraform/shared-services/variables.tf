@@ -19,13 +19,13 @@ variable "shared_account_id" {
 variable "cert_renewal_topic_name" {
   description = "Name of the SNS topic for certificate renewal notifications."
   type        = string
-  default     = "scip-cert-renewal"
+  default     = "slug-cert-renewal"
 }
 
 variable "cert_p1_alert_topic_name" {
   description = "Name of the SNS topic for P1 certificate alerts."
   type        = string
-  default     = "scip-cert-p1-alerts"
+  default     = "slug-cert-p1-alerts"
 }
 
 # ── Bitbucket token secret ────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ variable "create_bitbucket_token_secret" {
 variable "bitbucket_token_secret_name" {
   description = "Name/path of the Bitbucket token secret in Secrets Manager."
   type        = string
-  default     = "/scip/cert-lifecycle/bitbucket-token"
+  default     = "/slug/cert-lifecycle/bitbucket-token"
 }
 
 variable "bitbucket_token_secret_arn" {
@@ -96,13 +96,13 @@ variable "lambda_runtime" {
 variable "lambda_function_name" {
   description = "Name of the expiry checker Lambda function."
   type        = string
-  default     = "scip-cert-expiry-checker"
+  default     = "slug-cert-expiry-checker"
 }
 
 variable "lambda_execution_role_name" {
   description = "Name of the Lambda execution IAM role."
   type        = string
-  default     = "scip-cert-expiry-checker-role"
+  default     = "slug-cert-expiry-checker-role"
 }
 
 variable "lambda_timeout" {

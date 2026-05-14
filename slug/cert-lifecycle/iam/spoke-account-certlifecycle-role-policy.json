@@ -8,7 +8,7 @@
         "secretsmanager:GetSecretValue",
         "secretsmanager:DescribeSecret"
       ],
-      "Resource": "arn:aws:secretsmanager:eu-west-2:<spoke-account-id>:secret:/scip/certs/*"
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<spoke-account-id>:secret:/slug/certs/*"
     }
   ]
 }

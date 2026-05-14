@@ -3,14 +3,18 @@
 Certificate catalogues live in:
 
 ```text
-scip/cert-lifecycle/certs/
+slug/cert-lifecycle/certs/
 ```
+
+`slug` is an example platform prefix. Replace it with the prefix that matches your platform before wiring catalogues, Jenkins jobs, Terraform variables, or Secrets Manager paths into a live environment.
 
 File names use:
 
 ```text
 PTx-<env>-certs.yml
 ```
+
+Example templates may use the suffix `.yml.example`. Copy a template to `.yml` and replace all placeholders before first issuance.
 
 Examples: `PT2-dev-certs.yml`, `PT2-preprod-certs.yml`, `PT2-prod-certs.yml`.
 
@@ -104,13 +108,13 @@ The validator checks duplicate app names across all catalogue files, not just wi
 The secret is stored in the target spoke account under:
 
 ```text
-/scip/certs/{name}
+/slug/certs/{name}
 ```
 
 For `name: b2bi-preprodc`, the path is:
 
 ```text
-/scip/certs/b2bi-preprodc
+/slug/certs/b2bi-preprodc
 ```
 
 ## Secret payload
@@ -119,10 +123,10 @@ Ansible writes structured JSON:
 
 ```json
 {
-  "certificate": "-----BEGIN CERTIFICATE-----...",
-  "private_key": "-----BEGIN RSA PRIVATE KEY-----...",
-  "ca_chain": "-----BEGIN CERTIFICATE-----...",
-  "full_chain": "-----BEGIN CERTIFICATE-----...",
+  "certificate": "<leaf-certificate-pem>",
+  "private_key": "<private-key-pem>",
+  "ca_chain": "<ca-chain-pem>",
+  "full_chain": "<full-chain-pem>",
   "expiry_epoch": "1780000000",
   "common_name": "b2bi.c0081-preprodc.local"
 }
@@ -132,7 +136,7 @@ Do not print this payload in logs or tickets. It contains private key material.
 
 ## Add an app
 
-1. Pick or create the correct `PTx-<env>-certs.yml` file.
+1. Pick or create the correct `PTx-<env>-certs.yml` file. If a `.yml.example` template exists, copy it to `.yml` first.
 2. Add an app entry using the schema above.
 3. Replace `deployment.account_id` with the real 12-digit spoke account ID.
 4. Confirm `name` ends with `-{deployment.account_name}`.
@@ -140,10 +144,10 @@ Do not print this payload in logs or tickets. It contains private key material.
 6. Run:
 
    ```bash
-   python3 scip/cert-lifecycle/scripts/validate-catalogues.py
+   python3 slug/cert-lifecycle/scripts/validate-catalogues.py
    ```
 
 7. Raise a pull request.
 8. After merge, run Jenkins with `PRODUCT_TEAM`, `ENVIRONMENT`, and `APP_NAME`.
 
-Committed sample catalogues still contain placeholder account IDs. The validator intentionally fails until those are replaced for real issuance.
+Committed `.yml.example` catalogues may contain placeholder account IDs. Active `.yml` catalogues must contain real 12-digit AWS account IDs.

@@ -56,7 +56,7 @@ By the end of Phase 1:
 
 ```text
 Bitbucket
-  └── scip/cert-lifecycle/certs/PTx-<env>-certs.yml
+  └── slug/cert-lifecycle/certs/PTx-<env>-certs.yml
         |
         | read by Jenkins issuance pipeline
         | read by expiry checker Lambda
@@ -69,7 +69,7 @@ Jenkins cert-issuance pipeline
         |
         v
 
-scip-platform-lib shared library
+slug-platform-lib shared library
   └── vars/issueCertificate.groovy
         |
         | assumes jagent-ec2-role into spoke account
@@ -83,7 +83,7 @@ Ansible universal-vault-cert-issuer role
         v
 
 Spoke account AWS Secrets Manager
-  └── /scip/certs/{app_name}
+  └── /slug/certs/{app_name}
         |
         | read by app startup script / init container
         | read by expiry checker Lambda
@@ -92,7 +92,7 @@ Spoke account AWS Secrets Manager
 Shared account expiry checker Lambda
   └── reads cert catalogue
   └── assumes CertLifecycleRole into each spoke account
-  └── reads /scip/certs/{app_name}
+  └── reads /slug/certs/{app_name}
   └── parses real PEM expiry using Python cryptography
   └── routes notifications through SNS
 ```
@@ -129,7 +129,7 @@ The certificate catalogue is the source of truth for enrolled applications.
 Catalogue files are stored in Bitbucket under:
 
 ```text
-scip/cert-lifecycle/certs/
+slug/cert-lifecycle/certs/
 ```
 
 Files are named:
@@ -201,7 +201,7 @@ deployment:
 The certificate secret is stored in the target spoke account under:
 
 ```text
-/scip/certs/{app_name}
+/slug/certs/{app_name}
 ```
 
 Where `{app_name}` is the `name` field from the catalogue.
@@ -215,7 +215,7 @@ name: b2bi-preprodc
 Creates or updates this spoke account secret:
 
 ```text
-/scip/certs/b2bi-preprodc
+/slug/certs/b2bi-preprodc
 ```
 
 Do not append the account name a second time.
@@ -223,7 +223,7 @@ Do not append the account name a second time.
 Incorrect:
 
 ```text
-/scip/certs/b2bi-preprodc-preprodc
+/slug/certs/b2bi-preprodc-preprodc
 ```
 
 ---
@@ -234,10 +234,10 @@ The Secrets Manager secret must contain structured JSON with exactly these requi
 
 ```json
 {
-  "certificate": "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
-  "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----",
-  "ca_chain": "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
-  "full_chain": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+  "certificate": "<leaf-certificate-pem>",
+  "private_key": "<private-key-pem>",
+  "ca_chain": "<ca-chain-pem>",
+  "full_chain": "<full-chain-pem>",
   "expiry_epoch": "1780000000",
   "common_name": "b2bi.c0081-devc.local"
 }
@@ -267,7 +267,7 @@ Required behaviour:
 
 ```text
 If secret does not exist:
-  create /scip/certs/{app_name}
+  create /slug/certs/{app_name}
 
 If secret exists:
   write a new AWSCURRENT version
@@ -364,7 +364,7 @@ Create version-controlled YAML catalogue files defining every enrolled applicati
 Each catalogue file must be stored under:
 
 ```text
-scip/cert-lifecycle/certs/
+slug/cert-lifecycle/certs/
 ```
 
 Using the file pattern:
@@ -376,9 +376,9 @@ PTx-<env>-certs.yml
 Examples:
 
 ```text
-scip/cert-lifecycle/certs/PT2-dev-certs.yml
-scip/cert-lifecycle/certs/PT2-preprod-certs.yml
-scip/cert-lifecycle/certs/PT5-prod-certs.yml
+slug/cert-lifecycle/certs/PT2-dev-certs.yml
+slug/cert-lifecycle/certs/PT2-preprod-certs.yml
+slug/cert-lifecycle/certs/PT5-prod-certs.yml
 ```
 
 ---
@@ -478,7 +478,7 @@ ecs
 Create or update:
 
 ```text
-scip/cert-lifecycle/README.md
+slug/cert-lifecycle/README.md
 ```
 
 The README must document:
@@ -500,7 +500,7 @@ Phase 1 limitations
 The README must clearly state:
 
 ```text
-Secret path = /scip/certs/{name}
+Secret path = /slug/certs/{name}
 ```
 
 Where `{name}` is the app `name` field from the YAML.
@@ -510,7 +510,7 @@ Where `{name}` is the app `name` field from the YAML.
 ## 6.6 Acceptance criteria
 
 ```text
-- Catalogue files exist under scip/cert-lifecycle/certs/.
+- Catalogue files exist under slug/cert-lifecycle/certs/.
 - Files use the naming pattern PTx-<env>-certs.yml.
 - Each file has a top-level apps list.
 - Every app entry contains deployment.account_id and deployment.account_name.
@@ -546,7 +546,7 @@ ttl: 2160h
 aws_region: eu-west-2
 account_id: '302253067501'
 account_name: preprodc
-secret_name: /scip/certs/b2bi-preprodc
+secret_name: /slug/certs/b2bi-preprodc
 ```
 
 The role will already receive or produce the following from Vault issuance:
@@ -602,10 +602,10 @@ This protects against Jenkins assuming the wrong account or failing to assume th
 Required logic:
 
 ```text
-If /scip/certs/{app_name} does not exist:
+If /slug/certs/{app_name} does not exist:
   create secret with JSON payload and required tags
 
-If /scip/certs/{app_name} exists:
+If /slug/certs/{app_name} exists:
   put new secret value
   ensure required tags exist
 
@@ -672,7 +672,7 @@ The assumed `jagent-ec2-role` must have, at minimum:
         "secretsmanager:PutSecretValue",
         "secretsmanager:TagResource"
       ],
-      "Resource": "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/scip/certs/*"
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/slug/certs/*"
     }
   ]
 }
@@ -685,7 +685,7 @@ If using a customer-managed KMS key, include appropriate KMS permissions constra
 ## 7.8 Acceptance criteria
 
 ```text
-- Role writes certificate JSON to /scip/certs/{app_name} in the spoke account.
+- Role writes certificate JSON to /slug/certs/{app_name} in the spoke account.
 - JSON contains certificate, private_key, ca_chain, full_chain, expiry_epoch, and common_name.
 - Role creates the secret if it does not exist.
 - Role updates existing secrets as new versions using put-secret-value behaviour.
@@ -708,7 +708,7 @@ Add a reusable Jenkins shared library step:
 vars/issueCertificate.groovy
 ```
 
-in `scip-platform-lib`.
+in `slug-platform-lib`.
 
 The helper must encapsulate all Jenkins-side orchestration needed to issue or renew one certificate.
 
@@ -732,7 +732,7 @@ The helper must:
 4. Derive the secret path:
 
 ```text
-/scip/certs/{app.name}
+/slug/certs/{app.name}
 ```
 
 5. Assume `jagent-ec2-role` in the spoke account using `withAWS`.
@@ -813,7 +813,7 @@ ttl: "{app.ttl}"
 deployment_type: "{app.deployment.type}"
 account_id: "{app.deployment.account_id}"
 account_name: "{app.deployment.account_name}"
-secret_name: "/scip/certs/{app.name}"
+secret_name: "/slug/certs/{app.name}"
 aws_region: "eu-west-2"
 activation: "{app.activation}"
 maintenance_window: "{app.maintenance_window}"
@@ -831,14 +831,14 @@ ecs_service: "{app.deployment.service}"
 ## 8.6 Acceptance criteria
 
 ```text
-- vars/issueCertificate.groovy exists in scip-platform-lib.
+- vars/issueCertificate.groovy exists in slug-platform-lib.
 - Step accepts a single Map representing one certs.yml app entry.
 - Step reads account_id and account_name from app.deployment.
 - No separate account parameter is required.
 - Step validates required app fields.
 - Step validates deployment.type is ec2 or ecs.
 - Step validates app.name suffix matches deployment.account_name.
-- Step derives secret_name as /scip/certs/{app.name}.
+- Step derives secret_name as /slug/certs/{app.name}.
 - Step assumes jagent-ec2-role in app.deployment.account_id using withAWS.
 - Step invokes the universal-vault-cert-issuer Ansible role.
 - Step throws/fails on Ansible failure.
@@ -902,13 +902,13 @@ parameters {
 The catalogue path is derived as:
 
 ```groovy
-scip/cert-lifecycle/certs/${PRODUCT_TEAM}-${ENVIRONMENT}-certs.yml
+slug/cert-lifecycle/certs/${PRODUCT_TEAM}-${ENVIRONMENT}-certs.yml
 ```
 
 Example:
 
 ```text
-scip/cert-lifecycle/certs/PT2-preprod-certs.yml
+slug/cert-lifecycle/certs/PT2-preprod-certs.yml
 ```
 
 ---
@@ -1002,7 +1002,7 @@ Do not process apps in parallel in Phase 1.
 - Available app names are shown in the not-found error.
 - Duplicate app names in a catalogue cause pipeline failure.
 - All apps run sequentially when APP_NAME is empty.
-- Pipeline calls issueCertificate(app) from scip-platform-lib.
+- Pipeline calls issueCertificate(app) from slug-platform-lib.
 - Jenkinsfile contains no inline Ansible logic.
 - Jenkinsfile contains no inline Vault issuance logic.
 - Jenkinsfile contains no inline Secrets Manager write logic.
@@ -1025,7 +1025,7 @@ The Lambda must:
 1. Read certificate catalogue files from Bitbucket API using a token stored in shared-account Secrets Manager.
 2. Iterate every enrolled application.
 3. Assume `CertLifecycleRole` into the relevant spoke account.
-4. Read `/scip/certs/{app.name}` from that spoke account’s Secrets Manager.
+4. Read `/slug/certs/{app.name}` from that spoke account’s Secrets Manager.
 5. Extract the `certificate` field.
 6. Parse the actual PEM expiry using the Python `cryptography` library.
 7. Calculate `days_left`.
@@ -1044,7 +1044,7 @@ The Bitbucket token is stored in shared-account Secrets Manager.
 Example token secret:
 
 ```text
-/scip/cert-lifecycle/bitbucket-token
+/slug/cert-lifecycle/bitbucket-token
 ```
 
 Expected token secret format:
@@ -1065,14 +1065,14 @@ Use environment variables similar to:
 
 ```text
 AWS_REGION=eu-west-2
-BITBUCKET_TOKEN_SECRET_ID=/scip/cert-lifecycle/bitbucket-token
+BITBUCKET_TOKEN_SECRET_ID=/slug/cert-lifecycle/bitbucket-token
 BITBUCKET_CATALOGUE_URLS=<comma-separated raw Bitbucket URLs>
 SPOKE_ROLE_NAME=CertLifecycleRole
-CERT_RENEWAL_TOPIC_ARN=arn:aws:sns:eu-west-2:<shared-account-id>:scip-cert-renewal
-CERT_P1_ALERT_TOPIC_ARN=arn:aws:sns:eu-west-2:<shared-account-id>:scip-cert-p1-alerts
-JENKINS_JOB_NAME=scip-cert-issuance
-JENKINS_JOB_URL=https://jenkins.example/job/scip-cert-issuance
-RUNBOOK_URL=https://confluence.example/display/SCIP/Certificate+Lifecycle+Runbook
+CERT_RENEWAL_TOPIC_ARN=arn:aws:sns:eu-west-2:<shared-account-id>:slug-cert-renewal
+CERT_P1_ALERT_TOPIC_ARN=arn:aws:sns:eu-west-2:<shared-account-id>:slug-cert-p1-alerts
+JENKINS_JOB_NAME=slug-cert-issuance
+JENKINS_JOB_URL=https://jenkins.example/job/slug-cert-issuance
+RUNBOOK_URL=https://confluence.example/display/Slug/Certificate+Lifecycle+Runbook
 ```
 
 If catalogue URLs become too large for an environment variable, replace with a manifest file or repository path listing in a later story.
@@ -1104,7 +1104,7 @@ Required permissions:
         "secretsmanager:GetSecretValue",
         "secretsmanager:DescribeSecret"
       ],
-      "Resource": "arn:aws:secretsmanager:eu-west-2:<spoke-account-id>:secret:/scip/certs/*"
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<spoke-account-id>:secret:/slug/certs/*"
     }
   ]
 }
@@ -1237,15 +1237,15 @@ Account ID: 302253067501
 Current expiry date: 2026-06-01T12:00:00Z
 Days remaining: 22
 
-Jenkins renewal job: scip-cert-issuance
-Jenkins job URL: https://jenkins.example/job/scip-cert-issuance
+Jenkins renewal job: slug-cert-issuance
+Jenkins job URL: https://jenkins.example/job/slug-cert-issuance
 APP_NAME parameter value: b2bi-preprodc
 
 Required action:
 Run the Jenkins certificate issuance job using the APP_NAME value above.
 
 Runbook:
-https://confluence.example/display/SCIP/Certificate+Lifecycle+Runbook
+https://confluence.example/display/Slug/Certificate+Lifecycle+Runbook
 ```
 
 Suggested P1 body:
@@ -1259,8 +1259,8 @@ Account ID: 302253067501
 Current expiry date: 2026-05-16T12:00:00Z
 Days remaining: 6
 
-Jenkins renewal job: scip-cert-issuance
-Jenkins job URL: https://jenkins.example/job/scip-cert-issuance
+Jenkins renewal job: slug-cert-issuance
+Jenkins job URL: https://jenkins.example/job/slug-cert-issuance
 APP_NAME parameter value: b2bi-preprodc
 
 Required action:
@@ -1269,7 +1269,7 @@ Required action:
 3. Coordinate application restart/reload with the owning team if required.
 
 Runbook:
-https://confluence.example/display/SCIP/Certificate+Lifecycle+Runbook
+https://confluence.example/display/Slug/Certificate+Lifecycle+Runbook
 ```
 
 ---
@@ -1346,7 +1346,7 @@ The shared account Lambda execution role needs:
       "Action": [
         "secretsmanager:GetSecretValue"
       ],
-      "Resource": "arn:aws:secretsmanager:eu-west-2:<shared-account-id>:secret:/scip/cert-lifecycle/bitbucket-token-*"
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<shared-account-id>:secret:/slug/cert-lifecycle/bitbucket-token-*"
     },
     {
       "Sid": "AssumeSpokeCertLifecycleRoles",
@@ -1366,8 +1366,8 @@ The shared account Lambda execution role needs:
         "sns:Publish"
       ],
       "Resource": [
-        "arn:aws:sns:eu-west-2:<shared-account-id>:scip-cert-renewal",
-        "arn:aws:sns:eu-west-2:<shared-account-id>:scip-cert-p1-alerts"
+        "arn:aws:sns:eu-west-2:<shared-account-id>:slug-cert-renewal",
+        "arn:aws:sns:eu-west-2:<shared-account-id>:slug-cert-p1-alerts"
       ]
     },
     {
@@ -1398,7 +1398,7 @@ Restrict `sns:Publish` to the exact SNS topic ARNs.
 - Lambda iterates every enrolled app from the selected catalogue files.
 - Lambda reads account_id and account_name from app.deployment.
 - Lambda assumes CertLifecycleRole in each target spoke account.
-- Lambda fetches /scip/certs/{app.name} from spoke account Secrets Manager.
+- Lambda fetches /slug/certs/{app.name} from spoke account Secrets Manager.
 - Lambda extracts only the certificate field from the secret payload for expiry parsing.
 - Lambda parses actual PEM expiry using Python cryptography.
 - Lambda routes based on actual PEM expiry, not expiry_epoch.
@@ -1433,8 +1433,8 @@ Terraform must create or manage:
 - Expiry checker Lambda function
 - Lambda execution IAM role and least-privilege policy
 - CloudWatch log group with configurable retention (default 30 days)
-- `scip-cert-renewal` SNS topic
-- `scip-cert-p1-alerts` SNS topic
+- `slug-cert-renewal` SNS topic
+- `slug-cert-p1-alerts` SNS topic
 - Optional Bitbucket token Secrets Manager secret container (metadata only — value set manually after deployment)
 
 ---
@@ -1445,7 +1445,7 @@ Terraform must provide a reusable module that creates:
 
 - `CertLifecycleRole` IAM role
 - Trust policy allowing the shared-account Lambda execution role to assume it
-- Read-only Secrets Manager policy scoped to `/scip/certs/*`
+- Read-only Secrets Manager policy scoped to `/slug/certs/*`
 - Optional KMS decrypt policy constrained by `kms:ViaService` when customer-managed keys are in use
 
 The spoke role must **not** have write access to Secrets Manager (`PutSecretValue`, `CreateSecret`, `DeleteSecret`, `UpdateSecret`).
@@ -1468,8 +1468,8 @@ The spoke role must **not** have write access to Secrets Manager (`PutSecretValu
 This role is owned outside this Terraform state. The required Secrets Manager write policy and optional KMS addon are documented in:
 
 ```text
-scip/cert-lifecycle/iam/spoke-account-jagent-policy.json
-scip/cert-lifecycle/iam/spoke-account-jagent-kms-addon.json
+slug/cert-lifecycle/iam/spoke-account-jagent-policy.json
+slug/cert-lifecycle/iam/spoke-account-jagent-kms-addon.json
 ```
 
 Apply these through whichever process owns the role.
@@ -1479,7 +1479,7 @@ Apply these through whichever process owns the role.
 ## 11.5 Lambda environment variables managed by Terraform
 
 ```text
-BITBUCKET_TOKEN_SECRET_ID  /scip/cert-lifecycle/bitbucket-token
+BITBUCKET_TOKEN_SECRET_ID  /slug/cert-lifecycle/bitbucket-token
 BITBUCKET_CATALOGUE_URLS   <comma-separated raw Bitbucket file URLs>
 SPOKE_ROLE_NAME            CertLifecycleRole
 CERT_RENEWAL_TOPIC_ARN     <SNS topic ARN>
@@ -1505,7 +1505,7 @@ Terraform may create the Bitbucket token Secrets Manager secret container. The t
 
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id "/scip/cert-lifecycle/bitbucket-token" \
+  --secret-id "/slug/cert-lifecycle/bitbucket-token" \
   --secret-string '{"token":"<token>"}' \
   --region eu-west-2
 ```
@@ -1557,7 +1557,7 @@ terraform validate  (spoke root module)
 - Terraform creates cert-renewal and cert-p1-alerts SNS topics.
 - Terraform provides a reusable spoke module for CertLifecycleRole.
 - CertLifecycleRole trusts only the shared-account Lambda execution role.
-- CertLifecycleRole can read /scip/certs/* but cannot create, update, or delete secrets.
+- CertLifecycleRole can read /slug/certs/* but cannot create, update, or delete secrets.
 - KMS decrypt permissions are constrained to supplied CMK ARNs with kms:ViaService condition.
 - Terraform does not manage live certificate secret values.
 - Terraform state does not contain private keys, PEM bodies, Bitbucket token values,
@@ -1633,7 +1633,7 @@ Minimum operator flow after a renewal-needed email:
 4. Set APP_NAME to the value from the email.
 5. Run the job.
 6. Confirm Jenkins completes successfully.
-7. Confirm /scip/certs/{APP_NAME} in the spoke account has a new AWSCURRENT version.
+7. Confirm /slug/certs/{APP_NAME} in the spoke account has a new AWSCURRENT version.
 8. Coordinate application restart/reload if the app does not dynamically reload certificates.
 ```
 
@@ -1648,13 +1648,13 @@ Use the catalogue `name` field everywhere for secret paths and Jenkins `APP_NAME
 Correct:
 
 ```text
-/scip/certs/b2bi-preprodc
+/slug/certs/b2bi-preprodc
 ```
 
 Incorrect:
 
 ```text
-/scip/certs/b2bi
+/slug/certs/b2bi
 ```
 
 ---
@@ -1717,7 +1717,7 @@ Phase 1 is complete when:
 - Ansible role writes issued PEM material to spoke account Secrets Manager.
 - Existing secrets are updated as new versions, not deleted/recreated.
 - Private key does not appear in Jenkins or Ansible logs.
-- issueCertificate(app) exists in scip-platform-lib.
+- issueCertificate(app) exists in slug-platform-lib.
 - Jenkins cert-issuance pipeline can issue/renew one app using APP_NAME.
 - Jenkins cert-issuance pipeline can issue/renew all apps in a catalogue sequentially.
 - Expiry checker Lambda is deployed in shared services account.
@@ -1746,7 +1746,7 @@ Implement in this order:
 1.  Create catalogue schema and README.
 2.  Populate initial PTx-<env>-certs.yml files.
 3.  Extend Ansible role to write issued cert material to Secrets Manager.
-4.  Add issueCertificate(app) to scip-platform-lib.
+4.  Add issueCertificate(app) to slug-platform-lib.
 5.  Create Jenkins cert-issuance pipeline.
 6.  Test single-app issuance into a non-prod spoke account.
 7.  Test renewal of an existing secret and confirm new AWSCURRENT version.

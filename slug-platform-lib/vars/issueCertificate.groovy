@@ -12,25 +12,27 @@ def call(Map app) {
 
     String accountId   = app.deployment.account_id
     String accountName = app.deployment.account_name
-    String secretName  = "/scip/certs/${app.name}"
-    String varsFile    = "${env.WORKSPACE}/.cert-vars-${app.name}-${currentBuild.number}.json"
+    String secretName  = "/slug/certs/${app.name}"
+    String varsFile    = "${env.WORKSPACE}/.cert-vars-${currentBuild.number}-${UUID.randomUUID().toString()}.json"
 
     echo "issueCertificate: app=${app.name} account=${accountName} (${accountId})"
 
     try {
         writeFile file: varsFile, text: _toJson(_buildVarsMap(app, secretName))
 
+        String quotedVarsFile = _shellQuote(varsFile)
+
         withAWS(role: 'jagent-ec2-role', roleAccount: accountId, region: 'eu-west-2') {
-            withEnv(["ANSIBLE_ROLES_PATH=${env.WORKSPACE}/scip/cert-lifecycle/ansible/roles"]) {
+            withEnv(["ANSIBLE_ROLES_PATH=${env.WORKSPACE}/slug/cert-lifecycle/ansible/roles"]) {
                 sh(script: """
                     set +x
-                    ansible-playbook scip/cert-lifecycle/ansible/playbooks/issue-certificate.yml \\
-                        --extra-vars @${varsFile}
+                    ansible-playbook slug/cert-lifecycle/ansible/playbooks/issue-certificate.yml \\
+                        --extra-vars @${quotedVarsFile}
                 """)
             }
         }
     } finally {
-        sh "rm -f ${varsFile}"
+        sh "rm -f ${_shellQuote(varsFile)}"
     }
 }
 
@@ -45,12 +47,24 @@ private void _validateApp(Map app) {
         }
     }
 
+    if (!(app.name ==~ /^[A-Za-z0-9][A-Za-z0-9_.-]*-[A-Za-z0-9][A-Za-z0-9_.-]*$/)) {
+        error("issueCertificate: invalid app name '${app.name}'. Use only letters, numbers, dot, underscore, and hyphen, with an account suffix")
+    }
+
     Map dep = app.deployment as Map
 
     for (String field : ['type', 'account_id', 'account_name']) {
         if (!dep.get(field)) {
             error("issueCertificate: missing required deployment.${field} in app '${app.name}'")
         }
+    }
+
+    if (!(dep.account_id ==~ /^[0-9]{12}$/)) {
+        error("issueCertificate: deployment.account_id for app '${app.name}' must be a 12-digit AWS account ID")
+    }
+
+    if (!(dep.account_name ==~ /^[A-Za-z0-9][A-Za-z0-9_.-]*$/)) {
+        error("issueCertificate: invalid deployment.account_name '${dep.account_name}' for app '${app.name}'")
     }
 
     if (!['ec2', 'ecs'].contains(dep.type)) {
@@ -90,4 +104,9 @@ private Map _buildVarsMap(Map app, String secretName) {
 @NonCPS
 private String _toJson(Map vars) {
     groovy.json.JsonOutput.toJson(vars)
+}
+
+@NonCPS
+private String _shellQuote(String value) {
+    return "'" + value.replace("'", "'\"'\"'") + "'"
 }

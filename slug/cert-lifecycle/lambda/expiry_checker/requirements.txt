@@ -1,4 +1,4 @@
-# Lambda dependencies for the SCIP certificate expiry checker.
+# Lambda dependencies for the Slug certificate expiry checker.
 #
 # IMPORTANT: 'cryptography' contains native (C) components. It must be built
 # in a Lambda-compatible environment before packaging:

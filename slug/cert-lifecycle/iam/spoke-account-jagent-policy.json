@@ -10,7 +10,7 @@
         "secretsmanager:PutSecretValue",
         "secretsmanager:TagResource"
       ],
-      "Resource": "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/scip/certs/*"
+      "Resource": "arn:aws:secretsmanager:eu-west-2:<account-id>:secret:/slug/certs/*"
     }
   ]
 }

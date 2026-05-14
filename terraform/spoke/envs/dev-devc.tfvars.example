@@ -6,7 +6,7 @@
 # Pattern applies to all dev spoke accounts: dev-Dev through dev-devg.
 # Copy and rename for each account, replacing 'devc' with the target account name.
 #
-# Backend config is separate: create envs/dev-devc-backend.hcl (see terraform-deployment.md).
+# Backend config is separate: create envs/dev-devc-backend.hcl (see docs/terraform.md).
 #
 # There is no dev shared-services account. The lambda_execution_role_arn below
 # comes from the preprod shared-services apply. Add this account's ID to
@@ -23,7 +23,7 @@ spoke_account_id = "<devc-account-id>"
 #   terraform -chdir=terraform/shared-services output lambda_execution_role_arn
 
 spoke_role_name           = "CertLifecycleRole"
-lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/scip-cert-expiry-checker-role"
+lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/slug-cert-expiry-checker-role"
 
 kms_key_arns = []
 

@@ -1,4 +1,4 @@
-@Library('scip-platform-lib') _
+@Library('slug-platform-lib') _
 
 pipeline {
     // prod runs on the prod shared-services Jenkins agent; all other environments use preprod.
@@ -32,8 +32,12 @@ pipeline {
         stage('Issue certificate(s)') {
             steps {
                 script {
-                    String cataloguePath = "scip/cert-lifecycle/certs/${params.PRODUCT_TEAM}-${params.ENVIRONMENT}-certs.yml"
+                    String cataloguePath = "slug/cert-lifecycle/certs/${params.PRODUCT_TEAM}-${params.ENVIRONMENT}-certs.yml"
                     echo "Catalogue: ${cataloguePath}"
+
+                    if (!fileExists(cataloguePath)) {
+                        error("${cataloguePath} does not exist. Create it from a .yml.example template and replace placeholders before issuing certificates.")
+                    }
 
                     def catalogue = readYaml file: cataloguePath
 

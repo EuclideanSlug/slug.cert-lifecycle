@@ -1,6 +1,6 @@
 # Deployment
 
-This is the end-to-end deployment order for SCIP Certificate Lifecycle.
+This is the end-to-end deployment order for Slug Certificate Lifecycle.
 
 For Terraform command details, see [Terraform](terraform.md).
 
@@ -22,8 +22,8 @@ Shared services creates:
 - expiry checker Lambda
 - Lambda execution role and IAM policy
 - CloudWatch log group
-- `scip-cert-renewal` SNS topic
-- `scip-cert-p1-alerts` SNS topic
+- `slug-cert-renewal` SNS topic
+- `slug-cert-p1-alerts` SNS topic
 - optional Bitbucket token secret container
 
 Shared-services applies are valid for:
@@ -40,7 +40,7 @@ There is no dev or test shared-services account. Dev and test spokes are monitor
 Spoke applies create:
 
 - `CertLifecycleRole`
-- read-only Secrets Manager policy for `/scip/certs/*`
+- read-only Secrets Manager policy for `/slug/certs/*`
 - optional KMS decrypt policy
 - optional jagent write policy, only when `enable_issuer_permissions = true`
 
@@ -57,7 +57,7 @@ The spoke root does not create or update live certificate secret values.
 7. Apply each spoke with the correct `lambda_execution_role_arn`.
 8. Create an EventBridge schedule for the Lambda.
 9. Subscribe recipients to both SNS topics.
-10. Replace catalogue `deployment.account_id` placeholders.
+10. Copy any required catalogue `.yml.example` templates to `.yml` and replace `deployment.account_id` placeholders.
 11. Run the catalogue validator.
 12. Run a non-prod single-app Jenkins issuance.
 13. Confirm the secret version and Lambda log output.
@@ -108,7 +108,7 @@ Terraform does not insert the Bitbucket token value:
 
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id "/scip/cert-lifecycle/bitbucket-token" \
+  --secret-id "/slug/cert-lifecycle/bitbucket-token" \
   --secret-string '{"token":"<token>"}' \
   --region eu-west-2
 ```
@@ -127,7 +127,7 @@ Terraform also does not manage:
 
 ```bash
 docker run --rm \
-  -v "$(pwd)/scip/cert-lifecycle/lambda/expiry_checker":/src \
+  -v "$(pwd)/slug/cert-lifecycle/lambda/expiry_checker":/src \
   -v "$(pwd)/dist":/out \
   public.ecr.aws/lambda/python:3.12 \
   bash -c "pip install -r /src/requirements.txt -t /tmp/pkg && cp /src/*.py /tmp/pkg/ && cd /tmp/pkg && zip -r /out/expiry_checker.zip ."

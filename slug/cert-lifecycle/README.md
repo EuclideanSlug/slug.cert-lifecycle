@@ -1,10 +1,14 @@
-# SCIP Certificate Lifecycle Catalogue
+# Slug Certificate Lifecycle Catalogue
 
 Catalogue files live here:
 
 ```text
-scip/cert-lifecycle/certs/
+slug/cert-lifecycle/certs/
 ```
+
+`slug` is an example platform prefix. Replace it with the prefix used by your platform when adopting this repository.
+
+Active catalogues use `*.yml`. Example templates use `*.yml.example`.
 
 This directory-level README is intentionally short. The canonical documentation is:
 
@@ -18,5 +22,5 @@ This directory-level README is intentionally short. The canonical documentation 
 Quick validation:
 
 ```bash
-python3 scip/cert-lifecycle/scripts/validate-catalogues.py
+python3 slug/cert-lifecycle/scripts/validate-catalogues.py
 ```

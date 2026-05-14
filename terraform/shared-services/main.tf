@@ -2,7 +2,7 @@ locals {
   tags = merge(
     {
       "managed-by" = "terraform"
-      "project"    = "scip-cert-lifecycle"
+      "project"    = "slug-cert-lifecycle"
       "component"  = "cert-lifecycle"
     },
     var.tags,
@@ -44,7 +44,7 @@ resource "aws_secretsmanager_secret" "bitbucket_token" {
   count = var.create_bitbucket_token_secret ? 1 : 0
 
   name        = var.bitbucket_token_secret_name
-  description = "Bitbucket API token for the SCIP certificate expiry checker Lambda. Set the value manually — never via Terraform."
+  description = "Bitbucket API token for the Slug certificate expiry checker Lambda. Set the value manually — never via Terraform."
   tags        = local.tags
 }
 

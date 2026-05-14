@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-Validate all certificate catalogue YAML files under scip/cert-lifecycle/certs/.
+Validate all certificate catalogue YAML files under slug/cert-lifecycle/certs/.
 
 Exit code:
   0 — all catalogues are valid
   1 — one or more validation errors found
 """
 
-import glob
 import os
+import re
 import sys
+from pathlib import Path
 
 import yaml
 
-CERTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'certs')
+CERTS_DIR = Path(__file__).resolve().parent.parent / 'certs'
 
 REQUIRED_APP_FIELDS = [
     'name', 'common_name', 'sans', 'ttl',
@@ -23,9 +24,11 @@ REQUIRED_DEPLOYMENT_FIELDS = ['type', 'account_id', 'account_name']
 VALID_DEPLOYMENT_TYPES = ['ec2', 'ecs']
 ECS_REQUIRED_FIELDS = ['cluster', 'service']
 PLACEHOLDER_ACCOUNT_IDS = {'000000000000', '<account-id>'}
+APP_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]*-[A-Za-z0-9][A-Za-z0-9_.-]*$')
+ACCOUNT_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
 
 
-def validate_catalogue(path, all_names):
+def validate_catalogue(path, all_names, allow_placeholders=False):
     errors = []
     with open(path) as f:
         try:
@@ -38,6 +41,10 @@ def validate_catalogue(path, all_names):
 
     for idx, app in enumerate(data['apps']):
         loc = f'{path}[{idx}]'
+        if not isinstance(app, dict):
+            errors.append(f'{loc}: app entry must be a mapping')
+            continue
+
         name = app.get('name', f'<entry {idx}>')
 
         for field in REQUIRED_APP_FIELDS:
@@ -63,14 +70,32 @@ def validate_catalogue(path, all_names):
         account_name = dep.get('account_name', '')
         dep_type = dep.get('type')
 
-        if account_id in PLACEHOLDER_ACCOUNT_IDS:
+        if not isinstance(name, str) or not APP_NAME_RE.fullmatch(name):
             errors.append(
-                f'{loc} ({name}): deployment.account_id is still the '
-                f'placeholder "{account_id}". '
-                f'Replace with the real AWS account ID.'
+                f'{loc} ({name}): name must contain only letters, numbers, '
+                'dot, underscore, and hyphen, and must include an account suffix'
             )
 
-        if not account_id.isdigit() or len(account_id) != 12:
+        if account_name and (
+            not isinstance(account_name, str)
+            or not ACCOUNT_NAME_RE.fullmatch(account_name)
+        ):
+            errors.append(
+                f'{loc} ({name}): deployment.account_name must contain only '
+                'letters, numbers, dot, underscore, and hyphen'
+            )
+
+        if account_id in PLACEHOLDER_ACCOUNT_IDS:
+            if not allow_placeholders:
+                errors.append(
+                    f'{loc} ({name}): deployment.account_id is still the '
+                    f'placeholder "{account_id}". '
+                    f'Replace with the real AWS account ID.'
+                )
+
+        if account_id not in PLACEHOLDER_ACCOUNT_IDS and (
+            not account_id.isdigit() or len(account_id) != 12
+        ):
             errors.append(
                 f'{loc} ({name}): deployment.account_id must be a '
                 f'12-digit AWS account ID.'
@@ -107,10 +132,10 @@ def validate_catalogue(path, all_names):
 
 
 def main():
-    pattern = os.path.join(CERTS_DIR, '*.yml')
-    paths = sorted(glob.glob(pattern))
+    active_paths = sorted(CERTS_DIR.glob('*.yml'))
+    example_paths = sorted(CERTS_DIR.glob('*.yml.example'))
 
-    if not paths:
+    if not active_paths and not example_paths:
         print(
             f'No catalogue files found in {CERTS_DIR}',
             file=sys.stderr,
@@ -120,8 +145,17 @@ def main():
     all_names = {}
     all_errors = []
 
-    for path in paths:
+    for path in active_paths:
         errors = validate_catalogue(path, all_names)
+        all_errors.extend(errors)
+
+    example_names = {}
+    for path in example_paths:
+        errors = validate_catalogue(
+            path,
+            example_names,
+            allow_placeholders=True,
+        )
         all_errors.extend(errors)
 
     if all_errors:
@@ -135,8 +169,9 @@ def main():
         sys.exit(1)
 
     print(
-        f'OK: {len(paths)} catalogue file(s) validated. '
-        f'{len(all_names)} app(s) enrolled.'
+        f'OK: {len(active_paths)} active catalogue file(s) validated '
+        f'({len(all_names)} enrolled app(s)); '
+        f'{len(example_paths)} example catalogue file(s) validated.'
     )
 
 

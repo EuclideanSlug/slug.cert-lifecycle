@@ -1,13 +1,13 @@
 variable "cert_renewal_topic_name" {
   description = "Name of the SNS topic for certificate renewal notifications (15-30 days remaining)."
   type        = string
-  default     = "scip-cert-renewal"
+  default     = "slug-cert-renewal"
 }
 
 variable "cert_p1_alert_topic_name" {
   description = "Name of the SNS topic for P1 certificate alerts (14 days or fewer remaining, including expired)."
   type        = string
-  default     = "scip-cert-p1-alerts"
+  default     = "slug-cert-p1-alerts"
 }
 
 variable "tags" {

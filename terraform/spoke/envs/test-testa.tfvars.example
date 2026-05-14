@@ -6,7 +6,7 @@
 # Pattern applies to all test spoke accounts: test-testa through test-testg.
 # Copy and rename for each account, replacing 'testa' with the target account name.
 #
-# Backend config is separate: create envs/test-testa-backend.hcl (see terraform-deployment.md).
+# Backend config is separate: create envs/test-testa-backend.hcl (see docs/terraform.md).
 #
 # There is no test shared-services account. The lambda_execution_role_arn below
 # comes from the preprod shared-services apply. Add this account's ID to
@@ -23,7 +23,7 @@ spoke_account_id = "<testa-account-id>"
 #   terraform -chdir=terraform/shared-services output lambda_execution_role_arn
 
 spoke_role_name           = "CertLifecycleRole"
-lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/scip-cert-expiry-checker-role"
+lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/slug-cert-expiry-checker-role"
 
 kms_key_arns = []
 

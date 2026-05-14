@@ -66,7 +66,7 @@ Destroy requires explicit confirmation:
 make tf-destroy TARGET_TYPE=spoke ENVIRONMENT=dev SPOKE_ACCOUNT_NAME=devc CONFIRM_DESTROY=true
 ```
 
-The local Makefile passes `-auto-approve` when `AUTO_APPROVE=true`, including destroy if `CONFIRM_DESTROY=true` is also set. Use that combination only with deliberate operator intent.
+The local Makefile passes `-auto-approve` when `AUTO_APPROVE=true` for normal apply. `AUTO_APPROVE=true` is rejected for destroy.
 
 ## Jenkins Terraform pipeline
 
@@ -78,8 +78,8 @@ The local Makefile passes `-auto-approve` when `AUTO_APPROVE=true`, including de
 | `ACTION` | `plan`, `apply`, or `destroy` |
 | `ENVIRONMENT` | `dev`, `test`, `preprod`, `prod` |
 | `SPOKE_ACCOUNT_NAME` | required for spokes |
-| `TF_VAR_FILE` | optional path override relative to repo root |
-| `AUTO_APPROVE` | skips apply confirmation, but is blocked for destroy |
+| `TF_VAR_FILE` | optional `.tfvars` override under the selected root's `envs/` directory |
+| `AUTO_APPROVE` | skips apply confirmation for normal apply, but is blocked for destroy |
 
 Pipeline flow:
 
@@ -157,7 +157,7 @@ Terraform intentionally does not set `AWS_REGION`; Lambda provides it at runtime
 ## What Terraform does not manage
 
 - certificate private keys or PEM bodies
-- `/scip/certs/*` secret values
+- `/slug/certs/*` secret values
 - Bitbucket token value
 - catalogue YAML content
 - Vault PKI configuration

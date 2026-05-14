@@ -1,3 +1,16 @@
+String shellQuote(String value) {
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+}
+
+void validateSafeRelativePath(String value, String parameterName) {
+    if (!value || value.startsWith('/') || value.contains('..') || value.contains('//')) {
+        error("${parameterName} must be a relative path without '..' or duplicate slashes")
+    }
+    if (!(value ==~ /^[A-Za-z0-9_.\/-]+$/)) {
+        error("${parameterName} contains unsupported characters")
+    }
+}
+
 pipeline {
     // prod runs on the prod shared-services Jenkins agent; all others use preprod.
     agent { label params.ENVIRONMENT == 'prod' ? 'prodc' : 'preprod' }
@@ -36,7 +49,7 @@ pipeline {
         string(
             name: 'TF_VAR_FILE',
             defaultValue: '',
-            description: 'Optional. Override path to a .tfvars file (relative to repo root). If empty, resolved from the envs/ convention.'
+            description: 'Optional. Override .tfvars path under the selected Terraform root envs/ directory. If empty, resolved from convention.'
         )
         booleanParam(
             name: 'AUTO_APPROVE',
@@ -99,10 +112,21 @@ pipeline {
                         ? "envs/${params.ENVIRONMENT}-backend.hcl"
                         : "envs/${params.ENVIRONMENT}-${spokeTag}-backend.hcl"
 
-                    // Var file: auto-derived (relative to TF_ROOT) or absolute (user override).
+                    // Var file: auto-derived (relative to TF_ROOT) or validated repo-root override.
                     if (params.TF_VAR_FILE?.trim()) {
                         String provided = params.TF_VAR_FILE.trim()
-                        env.VAR_FILE = provided.startsWith('/') ? provided : "${env.WORKSPACE}/${provided}"
+                        validateSafeRelativePath(provided, 'TF_VAR_FILE')
+                        if (!provided.endsWith('.tfvars')) {
+                            error('TF_VAR_FILE must point to a .tfvars file')
+                        }
+                        String rootPrefix = "${env.TF_ROOT}/"
+                        env.VAR_FILE = provided.startsWith(rootPrefix)
+                            ? provided.substring(rootPrefix.length())
+                            : provided
+                        validateSafeRelativePath(env.VAR_FILE, 'resolved TF_VAR_FILE')
+                        if (!env.VAR_FILE.startsWith('envs/')) {
+                            error('TF_VAR_FILE must resolve under the selected Terraform root envs/ directory')
+                        }
                     } else if (params.TARGET_TYPE == 'shared') {
                         env.VAR_FILE = "envs/${params.ENVIRONMENT}.tfvars"
                     } else {
@@ -133,7 +157,7 @@ pipeline {
                 dir(env.TF_ROOT) {
                     sh """
                         set +x
-                        terraform init -backend-config=${env.BACKEND_CFG}
+                        terraform init -backend-config=${shellQuote(env.BACKEND_CFG)}
                     """
                 }
             }
@@ -154,7 +178,7 @@ pipeline {
                         String destroyFlag = params.ACTION == 'destroy' ? '-destroy' : ''
                         sh """
                             set +x
-                            terraform plan ${destroyFlag} -var-file=${env.VAR_FILE} -out=${env.PLAN_FILE}
+                            terraform plan ${destroyFlag} -var-file=${shellQuote(env.VAR_FILE)} -out=${shellQuote(env.PLAN_FILE)}
                         """
                     }
                 }
@@ -185,7 +209,7 @@ pipeline {
                 dir(env.TF_ROOT) {
                     sh """
                         set +x
-                        terraform apply ${env.PLAN_FILE}
+                        terraform apply ${shellQuote(env.PLAN_FILE)}
                     """
                 }
             }

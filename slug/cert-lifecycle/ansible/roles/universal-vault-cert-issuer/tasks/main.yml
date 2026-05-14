@@ -30,8 +30,8 @@
 - name: Validate secret_name matches expected path
   ansible.builtin.assert:
     that:
-      - secret_name == '/scip/certs/' + app_name
-    fail_msg: "secret_name '{{ secret_name }}' must be '/scip/certs/{{ app_name }}'"
+      - secret_name == '/slug/certs/' + app_name
+    fail_msg: "secret_name '{{ secret_name }}' must be '/slug/certs/{{ app_name }}'"
 
 - name: Issue certificate from Vault
   ansible.builtin.include_tasks: vault_issue.yml

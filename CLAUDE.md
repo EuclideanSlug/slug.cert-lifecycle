@@ -1,8 +1,8 @@
-# Agent Instructions — SCIP Certificate Lifecycle
+# Agent Instructions — Slug Certificate Lifecycle
 
 ## Role
 
-You are working as a senior AWS DevOps engineer on the SCIP certificate lifecycle automation project.
+You are working as a senior AWS DevOps engineer on the Slug certificate lifecycle automation project.
 
 Prioritise:
 - security
@@ -41,7 +41,7 @@ Application names come from the YAML `name` field and must follow:
 
 Secrets Manager path:
 
-`/scip/certs/{app_name}`
+`/slug/certs/{app_name}`
 
 Where `app_name` is the YAML `name` field.
 

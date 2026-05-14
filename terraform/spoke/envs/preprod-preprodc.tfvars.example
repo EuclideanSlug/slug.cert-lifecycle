@@ -3,7 +3,7 @@
 # DO NOT commit preprod-preprodc.tfvars — it may contain account IDs and configuration.
 # This .example file may be committed; it contains only placeholders.
 #
-# Backend config is separate: create envs/preprod-preprodc-backend.hcl (see terraform-deployment.md).
+# Backend config is separate: create envs/preprod-preprodc-backend.hcl (see docs/terraform.md).
 #
 # Apply this root module once per spoke account by switching AWS credentials to the target account.
 # Run terraform/shared-services first and note the lambda_execution_role_arn output.
@@ -18,7 +18,7 @@ spoke_account_id = "<preprodc-account-id>"
 #   terraform -chdir=terraform/shared-services output lambda_execution_role_arn
 
 spoke_role_name           = "CertLifecycleRole"
-lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/scip-cert-expiry-checker-role"
+lambda_execution_role_arn = "arn:aws:iam::<preprod-shared-account-id>:role/slug-cert-expiry-checker-role"
 
 # KMS keys used to encrypt certificate secrets in this spoke account.
 # Leave empty if not using customer-managed keys.
@@ -28,7 +28,7 @@ kms_key_arns = []
 # ── jagent issuer permissions (optional) ─────────────────────────────────────
 # Only set enable_issuer_permissions = true if this Terraform state owns jagent-ec2-role.
 # If jagent-ec2-role is externally managed, apply the policy in
-# scip/cert-lifecycle/iam/spoke-account-jagent-policy.json manually instead.
+# slug/cert-lifecycle/iam/spoke-account-jagent-policy.json manually instead.
 
 enable_issuer_permissions = false
 jagent_role_name          = "jagent-ec2-role"

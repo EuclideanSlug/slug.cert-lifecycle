@@ -36,7 +36,7 @@ variable "kms_key_arns" {
 # ── jagent issuer permissions (optional) ─────────────────────────────────────
 
 variable "enable_issuer_permissions" {
-  description = "When true, attach the Secrets Manager write policy to jagent-ec2-role. Only set true if this Terraform state owns that role. See scip/cert-lifecycle/iam/spoke-account-jagent-policy.json for the manual alternative."
+  description = "When true, attach the Secrets Manager write policy to jagent-ec2-role. Only set true if this Terraform state owns that role. See slug/cert-lifecycle/iam/spoke-account-jagent-policy.json for the manual alternative."
   type        = bool
   default     = false
 }

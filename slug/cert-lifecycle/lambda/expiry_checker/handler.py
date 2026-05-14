@@ -1,5 +1,5 @@
 """
-SCIP Certificate Lifecycle — Expiry Checker Lambda
+Slug Certificate Lifecycle — Expiry Checker Lambda
 
 Reads enrolled application certificate catalogue files from Bitbucket, checks
 the expiry of each application's certificate stored in spoke account AWS Secrets
@@ -64,13 +64,24 @@ def handler(event, context):  # noqa: ARG001
     except Exception as exc:
         logger.error('Failed to retrieve Bitbucket token from Secrets Manager: %s', exc)
         logger.info(json.dumps({'summary': counters}))
-        return counters
+        raise RuntimeError('Failed to retrieve Bitbucket token') from exc
 
-    apps = _load_all_apps(token)
+    apps, catalogue_errors = _load_all_apps(token)
+    counters['errors'] += catalogue_errors
+
+    if not apps:
+        logger.error(
+            json.dumps({
+                'status': 'error',
+                'message': 'No applications loaded from configured catalogue URLs',
+            })
+        )
+        logger.info(json.dumps({'summary': counters}))
+        raise RuntimeError('No applications loaded from configured catalogue URLs')
 
     for app in apps:
         counters['checked'] += 1
-        app_name = app.get('name', '<unknown>')
+        app_name = app.get('name', '<unknown>') if isinstance(app, dict) else '<invalid>'
         try:
             result = _check_app(app, sts_client, sns_client)
             counters[result] += 1
@@ -97,9 +108,10 @@ def _get_bitbucket_token(sm_client) -> str:
     return payload['token']
 
 
-def _load_all_apps(token: str) -> list:
-    """Fetch every catalogue URL and return a flat list of app entries."""
+def _load_all_apps(token: str) -> tuple[list, int]:
+    """Fetch every catalogue URL and return (flat app list, catalogue error count)."""
     apps = []
+    errors = 0
     for raw_url in _BITBUCKET_CATALOGUE_URLS.split(','):
         url = raw_url.strip()
         if not url:
@@ -116,6 +128,7 @@ def _load_all_apps(token: str) -> list:
                         'url': url,
                     })
                 )
+                errors += 1
         except Exception as exc:
             logger.error(
                 json.dumps({
@@ -125,7 +138,8 @@ def _load_all_apps(token: str) -> list:
                     'error': str(exc),
                 })
             )
-    return apps
+            errors += 1
+    return apps, errors
 
 
 def _fetch_catalogue(url: str, token: str) -> dict:
@@ -202,7 +216,7 @@ def _check_app(app: dict, sts_client, sns_client) -> str:
     app_name = app['name']
     account_id = app['deployment']['account_id']
     account_name = app['deployment']['account_name']
-    secret_path = f'/scip/certs/{app_name}'
+    secret_path = f'/slug/certs/{app_name}'
 
     spoke_sm = _assume_spoke_role(sts_client, account_id, account_name)
     cert_pem = _get_certificate_pem(spoke_sm, secret_path)

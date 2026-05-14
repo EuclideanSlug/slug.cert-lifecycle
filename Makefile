@@ -1,4 +1,4 @@
-# SCIP Certificate Lifecycle — Terraform helper targets
+# Slug Certificate Lifecycle — Terraform helper targets
 #
 # Usage:
 #   make tf-help
@@ -82,7 +82,7 @@ endif
 .PHONY: tf-help tf-fmt tf-fmt-check tf-init tf-validate tf-plan tf-apply tf-destroy tf-clean
 
 tf-help: ## Print targets, examples, and current variable values
-	@printf '\nSCIP Cert Lifecycle — Terraform targets\n\n'
+	@printf '\nSlug Cert Lifecycle — Terraform targets\n\n'
 	@printf 'Examples:\n'
 	@printf '  make tf-fmt-check\n'
 	@printf '  make tf-plan    TARGET_TYPE=shared ENVIRONMENT=preprod\n'
@@ -231,10 +231,14 @@ tf-destroy: ## Plan and apply a destroy. Requires CONFIRM_DESTROY=true.
 	    '$(if $(SPOKE_ACCOUNT_NAME), SPOKE_ACCOUNT_NAME=$(SPOKE_ACCOUNT_NAME))'; \
 	  exit 1; \
 	fi
+	@if [ "$(AUTO_APPROVE)" = "true" ]; then \
+	  printf '\nError: AUTO_APPROVE=true is not allowed with tf-destroy.\n\n'; \
+	  exit 1; \
+	fi
 	terraform -chdir=$(TF_ROOT) plan -destroy \
 	  -var-file=$(TF_VAR_FILE) \
 	  -out=tfdestroy
-	terraform -chdir=$(TF_ROOT) apply $(_AUTO_APPROVE_FLAG) tfdestroy
+	terraform -chdir=$(TF_ROOT) apply tfdestroy
 
 tf-clean: ## Remove plan files and .terraform/ directory from the target root
 	rm -f $(TF_ROOT)/tfplan $(TF_ROOT)/tfdestroy

@@ -90,7 +90,7 @@ data "aws_iam_policy_document" "lambda_exec_policy" {
 
 resource "aws_iam_policy" "lambda_exec" {
   name        = "${var.lambda_function_name}-policy"
-  description = "Least-privilege policy for the SCIP certificate expiry checker Lambda."
+  description = "Least-privilege policy for the Slug certificate expiry checker Lambda."
   policy      = data.aws_iam_policy_document.lambda_exec_policy.json
   tags        = var.tags
 }

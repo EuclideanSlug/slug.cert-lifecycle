@@ -7,7 +7,7 @@
 #
 # If jagent-ec2-role is owned by another team or Terraform state, provide the
 # required policy from:
-#   scip/cert-lifecycle/iam/spoke-account-jagent-policy.json
+#   slug/cert-lifecycle/iam/spoke-account-jagent-policy.json
 # to the role owner for manual application or application via the owning Terraform state.
 
 data "aws_iam_policy_document" "jagent_cert_write" {
@@ -23,7 +23,7 @@ data "aws_iam_policy_document" "jagent_cert_write" {
     ]
 
     resources = [
-      "arn:aws:secretsmanager:${var.aws_region}:${var.spoke_account_id}:secret:/scip/certs/*",
+      "arn:aws:secretsmanager:${var.aws_region}:${var.spoke_account_id}:secret:/slug/certs/*",
     ]
   }
 
@@ -51,8 +51,8 @@ data "aws_iam_policy_document" "jagent_cert_write" {
 }
 
 resource "aws_iam_policy" "jagent_cert_write" {
-  name        = "scip-cert-lifecycle-jagent-write-certs"
-  description = "Secrets Manager write permissions for SCIP certificate issuance via the Jenkins issuer role."
+  name        = "slug-cert-lifecycle-jagent-write-certs"
+  description = "Secrets Manager write permissions for Slug certificate issuance via the Jenkins issuer role."
   policy      = data.aws_iam_policy_document.jagent_cert_write.json
   tags        = var.tags
 }
