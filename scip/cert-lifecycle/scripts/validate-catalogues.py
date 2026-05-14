@@ -22,7 +22,7 @@ REQUIRED_APP_FIELDS = [
 REQUIRED_DEPLOYMENT_FIELDS = ['type', 'account_id', 'account_name']
 VALID_DEPLOYMENT_TYPES = ['ec2', 'ecs']
 ECS_REQUIRED_FIELDS = ['cluster', 'service']
-PLACEHOLDER_ACCOUNT_ID = '000000000000'
+PLACEHOLDER_ACCOUNT_IDS = {'000000000000', '<account-id>'}
 
 
 def validate_catalogue(path, all_names):
@@ -63,11 +63,17 @@ def validate_catalogue(path, all_names):
         account_name = dep.get('account_name', '')
         dep_type = dep.get('type')
 
-        if account_id == PLACEHOLDER_ACCOUNT_ID:
+        if account_id in PLACEHOLDER_ACCOUNT_IDS:
             errors.append(
                 f'{loc} ({name}): deployment.account_id is still the '
-                f'placeholder "{PLACEHOLDER_ACCOUNT_ID}". '
+                f'placeholder "{account_id}". '
                 f'Replace with the real AWS account ID.'
+            )
+
+        if not account_id.isdigit() or len(account_id) != 12:
+            errors.append(
+                f'{loc} ({name}): deployment.account_id must be a '
+                f'12-digit AWS account ID.'
             )
 
         if dep_type and dep_type not in VALID_DEPLOYMENT_TYPES:

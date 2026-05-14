@@ -5,8 +5,13 @@ variable "aws_region" {
 }
 
 variable "spoke_account_id" {
-  description = "AWS account ID of this spoke account. Used to scope Secrets Manager resource ARNs."
+  description = "AWS account ID of this spoke account. Used to scope resource ARNs and as a provider guardrail so Terraform refuses to run against the wrong account."
   type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.spoke_account_id))
+    error_message = "spoke_account_id must be a 12-digit AWS account ID."
+  }
 }
 
 # ── CertLifecycleRole ─────────────────────────────────────────────────────────

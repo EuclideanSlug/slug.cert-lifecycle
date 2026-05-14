@@ -16,21 +16,28 @@
 # Valid spoke accounts per environment:
 #   dev:     Dev deva devb devc devd deve devf devg
 #   test:    testa testb testc testd teste testf testg
-#   preprod: preproda preprodb preprodc preprodd preprode preprodf preprodg
-#   prod:    prodd prode prodf prodg prodh prodi prodj
+#   preprod: preprod preproda preprodb preprodc preprodd preprode preprodf preprodg
+#   prod:    prodc prodd prode prodf prodg prodh prodi prodj
 #
 # Shared-services accounts (TARGET_TYPE=shared):
 #   preprod: preprod
 #   prod:    prodc
+# These accounts are dual-purpose and may also be targeted with TARGET_TYPE=spoke.
 #
 # Note: dev and test have no shared-services account.
 #       TARGET_TYPE=shared is only valid with ENVIRONMENT=preprod or prod.
 
 TARGET_TYPE        ?= shared
-ENVIRONMENT        ?= dev
+ENVIRONMENT        ?= preprod
 SPOKE_ACCOUNT_NAME ?=
 AUTO_APPROVE       ?= false
 CONFIRM_DESTROY    ?= false
+
+_VALID_SPOKES_dev     := Dev deva devb devc devd deve devf devg
+_VALID_SPOKES_test    := testa testb testc testd teste testf testg
+_VALID_SPOKES_preprod := preprod preproda preprodb preprodc preprodd preprode preprodf preprodg
+_VALID_SPOKES_prod    := prodc prodd prode prodf prodg prodh prodi prodj
+_VALID_SPOKES         := $(_VALID_SPOKES_$(ENVIRONMENT))
 
 # ── Terraform root ────────────────────────────────────────────────────────────
 
@@ -92,8 +99,9 @@ tf-help: ## Print targets, examples, and current variable values
 	@printf '\nValid spoke accounts per environment:\n'
 	@printf '  dev:     Dev deva devb devc devd deve devf devg\n'
 	@printf '  test:    testa testb testc testd teste testf testg\n'
-	@printf '  preprod: preproda preprodb preprodc preprodd preprode preprodf preprodg\n'
-	@printf '  prod:    prodd prode prodf prodg prodh prodi prodj\n'
+	@printf '  preprod: preprod preproda preprodb preprodc preprodd preprode preprodf preprodg\n'
+	@printf '  prod:    prodc prodd prode prodf prodg prodh prodi prodj\n'
+	@printf '  (preprod and prodc are dual-purpose shared-services/spoke accounts)\n'
 	@printf '\nTargets:\n'
 	@printf '  %-20s %s\n' tf-help          'Print this help'
 	@printf '  %-20s %s\n' tf-fmt           'Format all Terraform files recursively'
@@ -122,32 +130,76 @@ tf-fmt-check: ## Check Terraform formatting without modifying files
 	terraform fmt -check -recursive
 
 tf-init: ## Initialise Terraform with backend config for the target environment
+	@if [ "$(TARGET_TYPE)" = "shared" ] && { [ "$(ENVIRONMENT)" = "dev" ] || [ "$(ENVIRONMENT)" = "test" ]; }; then \
+	  printf '\nError: TARGET_TYPE=shared is only valid for ENVIRONMENT=preprod or prod.\n\n'; \
+	  exit 1; \
+	fi
 	@if [ "$(TARGET_TYPE)" = "spoke" ] && [ -z "$(SPOKE_ACCOUNT_NAME)" ]; then \
 	  printf '\nError: SPOKE_ACCOUNT_NAME is required when TARGET_TYPE=spoke.\n\n'; \
 	  exit 1; \
+	fi
+	@if [ "$(TARGET_TYPE)" = "spoke" ]; then \
+	  case " $(_VALID_SPOKES) " in \
+	    *" $(SPOKE_ACCOUNT_NAME) "*) ;; \
+	    *) printf '\nError: SPOKE_ACCOUNT_NAME=%s is not valid for ENVIRONMENT=%s.\nValid spoke accounts: %s\n\n' \
+	         '$(SPOKE_ACCOUNT_NAME)' '$(ENVIRONMENT)' '$(_VALID_SPOKES)'; exit 1 ;; \
+	  esac; \
 	fi
 	terraform -chdir=$(TF_ROOT) init -backend-config=$(BACKEND_CFG)
 
 tf-validate: ## Validate Terraform configuration (run tf-init first)
+	@if [ "$(TARGET_TYPE)" = "shared" ] && { [ "$(ENVIRONMENT)" = "dev" ] || [ "$(ENVIRONMENT)" = "test" ]; }; then \
+	  printf '\nError: TARGET_TYPE=shared is only valid for ENVIRONMENT=preprod or prod.\n\n'; \
+	  exit 1; \
+	fi
 	@if [ "$(TARGET_TYPE)" = "spoke" ] && [ -z "$(SPOKE_ACCOUNT_NAME)" ]; then \
 	  printf '\nError: SPOKE_ACCOUNT_NAME is required when TARGET_TYPE=spoke.\n\n'; \
 	  exit 1; \
 	fi
+	@if [ "$(TARGET_TYPE)" = "spoke" ]; then \
+	  case " $(_VALID_SPOKES) " in \
+	    *" $(SPOKE_ACCOUNT_NAME) "*) ;; \
+	    *) printf '\nError: SPOKE_ACCOUNT_NAME=%s is not valid for ENVIRONMENT=%s.\nValid spoke accounts: %s\n\n' \
+	         '$(SPOKE_ACCOUNT_NAME)' '$(ENVIRONMENT)' '$(_VALID_SPOKES)'; exit 1 ;; \
+	  esac; \
+	fi
 	terraform -chdir=$(TF_ROOT) validate
 
 tf-plan: ## Plan Terraform changes and save output to tfplan
+	@if [ "$(TARGET_TYPE)" = "shared" ] && { [ "$(ENVIRONMENT)" = "dev" ] || [ "$(ENVIRONMENT)" = "test" ]; }; then \
+	  printf '\nError: TARGET_TYPE=shared is only valid for ENVIRONMENT=preprod or prod.\n\n'; \
+	  exit 1; \
+	fi
 	@if [ "$(TARGET_TYPE)" = "spoke" ] && [ -z "$(SPOKE_ACCOUNT_NAME)" ]; then \
 	  printf '\nError: SPOKE_ACCOUNT_NAME is required when TARGET_TYPE=spoke.\n\n'; \
 	  exit 1; \
+	fi
+	@if [ "$(TARGET_TYPE)" = "spoke" ]; then \
+	  case " $(_VALID_SPOKES) " in \
+	    *" $(SPOKE_ACCOUNT_NAME) "*) ;; \
+	    *) printf '\nError: SPOKE_ACCOUNT_NAME=%s is not valid for ENVIRONMENT=%s.\nValid spoke accounts: %s\n\n' \
+	         '$(SPOKE_ACCOUNT_NAME)' '$(ENVIRONMENT)' '$(_VALID_SPOKES)'; exit 1 ;; \
+	  esac; \
 	fi
 	terraform -chdir=$(TF_ROOT) plan \
 	  -var-file=$(TF_VAR_FILE) \
 	  -out=tfplan
 
 tf-apply: ## Apply the saved tfplan (run tf-plan first)
+	@if [ "$(TARGET_TYPE)" = "shared" ] && { [ "$(ENVIRONMENT)" = "dev" ] || [ "$(ENVIRONMENT)" = "test" ]; }; then \
+	  printf '\nError: TARGET_TYPE=shared is only valid for ENVIRONMENT=preprod or prod.\n\n'; \
+	  exit 1; \
+	fi
 	@if [ "$(TARGET_TYPE)" = "spoke" ] && [ -z "$(SPOKE_ACCOUNT_NAME)" ]; then \
 	  printf '\nError: SPOKE_ACCOUNT_NAME is required when TARGET_TYPE=spoke.\n\n'; \
 	  exit 1; \
+	fi
+	@if [ "$(TARGET_TYPE)" = "spoke" ]; then \
+	  case " $(_VALID_SPOKES) " in \
+	    *" $(SPOKE_ACCOUNT_NAME) "*) ;; \
+	    *) printf '\nError: SPOKE_ACCOUNT_NAME=%s is not valid for ENVIRONMENT=%s.\nValid spoke accounts: %s\n\n' \
+	         '$(SPOKE_ACCOUNT_NAME)' '$(ENVIRONMENT)' '$(_VALID_SPOKES)'; exit 1 ;; \
+	  esac; \
 	fi
 	@if [ ! -f "$(TF_ROOT)/tfplan" ]; then \
 	  printf '\nError: %s/tfplan not found. Run make tf-plan first.\n\n' '$(TF_ROOT)'; \
@@ -156,9 +208,20 @@ tf-apply: ## Apply the saved tfplan (run tf-plan first)
 	terraform -chdir=$(TF_ROOT) apply $(_AUTO_APPROVE_FLAG) tfplan
 
 tf-destroy: ## Plan and apply a destroy. Requires CONFIRM_DESTROY=true.
+	@if [ "$(TARGET_TYPE)" = "shared" ] && { [ "$(ENVIRONMENT)" = "dev" ] || [ "$(ENVIRONMENT)" = "test" ]; }; then \
+	  printf '\nError: TARGET_TYPE=shared is only valid for ENVIRONMENT=preprod or prod.\n\n'; \
+	  exit 1; \
+	fi
 	@if [ "$(TARGET_TYPE)" = "spoke" ] && [ -z "$(SPOKE_ACCOUNT_NAME)" ]; then \
 	  printf '\nError: SPOKE_ACCOUNT_NAME is required when TARGET_TYPE=spoke.\n\n'; \
 	  exit 1; \
+	fi
+	@if [ "$(TARGET_TYPE)" = "spoke" ]; then \
+	  case " $(_VALID_SPOKES) " in \
+	    *" $(SPOKE_ACCOUNT_NAME) "*) ;; \
+	    *) printf '\nError: SPOKE_ACCOUNT_NAME=%s is not valid for ENVIRONMENT=%s.\nValid spoke accounts: %s\n\n' \
+	         '$(SPOKE_ACCOUNT_NAME)' '$(ENVIRONMENT)' '$(_VALID_SPOKES)'; exit 1 ;; \
+	  esac; \
 	fi
 	@if [ "$(CONFIRM_DESTROY)" != "true" ]; then \
 	  printf '\nError: tf-destroy requires explicit confirmation.\n\n'; \

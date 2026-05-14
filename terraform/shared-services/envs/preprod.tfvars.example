@@ -10,6 +10,7 @@
 # spoke_account_ids below so the Lambda IAM policy permits assuming CertLifecycleRole there.
 
 aws_region = "eu-west-2"
+shared_account_id = "<preprod-shared-account-id>"
 
 # ── SNS ───────────────────────────────────────────────────────────────────────
 

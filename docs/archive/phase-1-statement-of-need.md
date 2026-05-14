@@ -1,3 +1,17 @@
+# Archived: Phase 1 Statement of Need
+
+This file is preserved as historical design context. It is not the operational source of truth.
+
+Use the current docs instead:
+
+- [Architecture](../architecture.md)
+- [Deployment](../deployment.md)
+- [Operations runbook](../operations-runbook.md)
+- [Catalogue reference](../catalogue-reference.md)
+- [Terraform](../terraform.md)
+
+---
+
 # Statement of Need — Phase 1 Certificate Lifecycle Automation
 
 ## 1. Purpose

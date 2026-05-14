@@ -5,12 +5,11 @@ variable "aws_region" {
 }
 
 variable "shared_account_id" {
-  description = "AWS account ID of the shared-services account. Optional; provide for explicit context. If set, must be a 12-digit account ID."
+  description = "AWS account ID of the shared-services account. Used as a provider guardrail so Terraform refuses to run against the wrong account."
   type        = string
-  default     = null
 
   validation {
-    condition     = var.shared_account_id == null || can(regex("^[0-9]{12}$", var.shared_account_id))
+    condition     = can(regex("^[0-9]{12}$", var.shared_account_id))
     error_message = "shared_account_id must be a 12-digit AWS account ID."
   }
 }

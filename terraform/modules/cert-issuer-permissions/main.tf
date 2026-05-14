@@ -35,6 +35,7 @@ data "aws_iam_policy_document" "jagent_cert_write" {
       effect = "Allow"
 
       actions = [
+        "kms:Decrypt",
         "kms:GenerateDataKey",
       ]
 
